@@ -1,0 +1,20 @@
+schema: spec-driven
+
+defaultSchema: spec-driven
+
+context: |
+  Tech stack: TypeScript, React, Node.js
+  We use conventional commits
+  Domain: vscode extensions, AI agents, developer tools
+
+rules:
+  research:
+    - Focus on understanding the problem space and user needs
+    - Document findings in a clear and concise manner
+    - Identify gaps between current documentation and actual implementation
+  proposal:
+    - when provided with an existing spec, focus on producing a good proposal that meets the intentions of the spec, rather than precisely following the spec itself. inform judgment with research, and inform the user when you are making a judgment call.
+    - Keep proposals under 500 words
+    - Always include a "Non-goals" section
+  tasks:
+    - Break tasks into chunks of max 2 hours
