@@ -1,5 +1,12 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "openspec": true
+        "openspec": true,
+        "mkdir": true,
+        "npm install": true,
+        "/^node build\\.mjs 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "npx tsc": true
     }
 }

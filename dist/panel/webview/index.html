@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src {{cspSource}}; script-src 'nonce-{{nonce}}'; connect-src ws://127.0.0.1:*;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="{{styleUri}}" rel="stylesheet" />
+    <title>AI Agent Monitor</title>
+  </head>
+  <body>
+    <div class="toolbar">
+      <span class="title">AI Agent Monitor</span>
+      <span id="status" class="status" aria-live="polite"></span>
+      <button id="clearBtn" class="clear-btn" type="button">Clear</button>
+    </div>
+    <div id="log" class="log-container" role="log" aria-label="Tool call log"></div>
+    <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
+  </body>
+</html>
