@@ -48,6 +48,42 @@ The extension SHALL terminate the proxy child process cleanly when VS Code deact
 
 ---
 
+### Requirement: IPC socket exposes proxy port to external clients
+The extension SHALL open a Unix domain socket at `$TMPDIR/myai-extension.sock` that responds to each connection with `{"port": <number>}` and then closes the connection.
+
+#### Scenario: External client queries port
+- **WHEN** any local process connects to `$TMPDIR/myai-extension.sock`
+- **THEN** the extension SHALL send `{"port": <number>}\n` and close the connection
+- **THEN** if the proxy has not yet started, `port` SHALL be `null`
+
+#### Scenario: Socket cleanup
+- **WHEN** the extension deactivates
+- **THEN** the socket file SHALL be removed from disk
+- **WHEN** the extension activates
+- **THEN** any stale socket file from a previous crash SHALL be removed before binding
+
+---
+
+### Requirement: Panel reopens automatically after proxy restart
+The extension SHALL restore the AI Agent Monitor panel across debug session restarts and proxy restarts without requiring the user to reopen it manually.
+
+#### Scenario: Proxy starts and panel was previously open
+- **WHEN** the proxy reports its port
+- **AND** `globalState('panelWasOpen')` is `true`
+- **THEN** the extension SHALL call `AgentPanel.createOrShow()` to reopen or reveal the panel with the new port
+
+#### Scenario: Proxy restarts and panel is already open
+- **WHEN** the proxy reports a new port
+- **AND** a panel is already open
+- **THEN** the extension SHALL send a fresh `init` message with the new port without revealing or disrupting the panel
+
+#### Scenario: User closes the panel
+- **WHEN** the user closes the AI Agent Monitor panel
+- **THEN** `globalState('panelWasOpen')` SHALL be set to `false`
+- **THEN** the panel SHALL NOT reopen automatically on the next proxy start
+
+---
+
 ### Requirement: Proxy self-terminates when the extension host dies
 The proxy process SHALL monitor its stdin pipe and exit when stdin closes, ensuring no orphaned proxy processes remain after an extension host crash or forced kill.
 
