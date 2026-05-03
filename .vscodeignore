@@ -1,0 +1,15 @@
+.vscode/**
+.github/**
+openspec/**
+docs/**
+src/**
+**/*.ts
+**/*.map
+!dist/**
+node_modules/**
+*.vsix
+.eslintrc.json
+tsconfig.json
+build.mjs
+.env
+.envrc

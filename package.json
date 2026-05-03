@@ -1,0 +1,55 @@
+{
+  "name": "myai-extension",
+  "displayName": "MyAI - Agent Monitor",
+  "description": "Monitor MCP tool calls from AI agents in real time",
+  "version": "0.1.0",
+  "license": "MIT",
+  "publisher": "industrial-curiosity",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/industrial-curiosity/myai-extension.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "myai.openPanel",
+        "title": "MyAI: Open Agent Monitor Panel"
+      },
+      {
+        "command": "myai.clearSession",
+        "title": "MyAI: Clear Session"
+      },
+      {
+        "command": "myai.showMcpConfig",
+        "title": "MyAI: Show Proxy MCP Config"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "vscode:prepublish": "node build.mjs",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.2",
+    "ws": "^8.18.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.13",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/vsce": "^3.9.1",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0"
+  }
+}

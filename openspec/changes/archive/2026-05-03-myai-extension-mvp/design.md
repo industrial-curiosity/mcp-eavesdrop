@@ -64,6 +64,16 @@ This design introduces a transparent proxy layer that sits between the agent and
 
 ---
 
+### 7. IPC Unix domain socket for proxy port discovery
+
+**Decision:** The extension exposes the proxy port via a Unix domain socket at `$TMPDIR/myai-extension.sock`. Any client that connects receives `{"port": N}` as a single newline-terminated JSON line, then the server closes the connection.
+
+**Rationale:** The proxy binds to a random OS-assigned port each activation. External tools (test scripts, other processes) need a reliable way to discover the current port without manual lookup. A Unix socket is ephemeral (no file persists between sessions), avoids race conditions inherent in reading a port file, and is connection-based so there is no ambiguity about whether the value is stale.
+
+**Alternative considered:** Writing the port to a temp file (`$TMPDIR/myai-proxy.port`) — rejected because a file can be read before it is written (race), may persist across crashes leaving a stale value, and requires explicit cleanup.
+
+---
+
 ### 6. Proxy self-terminates on parent death via stdin EOF
 
 **Decision:** The proxy watches `process.stdin` for an `end` event and calls `process.exit(0)` when it fires.
@@ -81,6 +91,8 @@ The extension spawns the proxy with `stdio: ['pipe', 'pipe', 'pipe']` (default) 
 - **Upstream server unreachable** → Proxy returns a JSON-RPC error to the agent with the upstream error message; the panel shows `tool_call_failed`
 - **Large payloads** → Arguments and results are truncated at 10KB before being emitted to the event stream to prevent WebView memory pressure
 - **WebView CSP** → All dynamic content uses DOM APIs (`textContent`, `createElement`); no `innerHTML`; nonces are used for inline scripts if needed
+- **Proxy restart → panel disconnect** → When the proxy restarts it binds to a new random port. The extension pushes a fresh `init` message to any open panel so it reconnects to the new port rather than retrying the dead one indefinitely
+- **Panel lost on debug restart** → Extension Development Host reloads destroy all WebView panels. The extension persists the panel's open/closed state in `globalState` and automatically reopens the panel when the proxy reports its port after reactivation
 
 ## Open Questions
 

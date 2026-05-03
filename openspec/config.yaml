@@ -18,3 +18,5 @@ rules:
     - Always include a "Non-goals" section
   tasks:
     - Break tasks into chunks of max 2 hours
+    - ensure that there are always tasks for testing and documentation
+    - Prioritize tasks that unblock other work

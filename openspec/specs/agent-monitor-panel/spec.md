@@ -70,6 +70,17 @@ The panel log SHALL automatically scroll to the most recent entry as new events 
 
 ---
 
+### Requirement: Panel handles proxy port changes without user action
+The panel SHALL reconnect to the proxy WebSocket automatically when the extension host sends a new `init` message with a changed port (e.g. after a proxy restart).
+
+#### Scenario: Proxy restarts while panel is open
+- **WHEN** the extension sends a new `init` message with a different `proxyPort`
+- **THEN** the panel SHALL close the existing WebSocket connection
+- **THEN** the panel SHALL open a new WebSocket connection to the updated port
+- **THEN** no user action SHALL be required
+
+---
+
 ### Requirement: Clear button resets the session log
 The panel SHALL provide a "Clear" button that removes all displayed entries and notifies the extension host.
 
