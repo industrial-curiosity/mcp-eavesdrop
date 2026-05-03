@@ -7,6 +7,7 @@
             "approve": true,
             "matchCommandLine": true
         },
-        "npx tsc": true
+        "npx tsc": true,
+        "mv": true
     }
 }

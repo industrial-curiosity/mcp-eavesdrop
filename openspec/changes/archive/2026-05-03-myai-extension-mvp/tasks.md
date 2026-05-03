@@ -59,6 +59,6 @@
 
 ## 8. Build & Package
 
-- [ ] 8.1 Confirm `vsce package` produces a `.vsix` without errors
+- [x] 8.1 Confirm `vsce package` produces a `.vsix` without errors
 - [x] 8.2 Verify extension activates in Extension Development Host and `myai.openPanel` opens the panel
 - [x] 8.3 Manual smoke test: route a test MCP tool call through the proxy and confirm it appears in the panel
