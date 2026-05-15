@@ -79,7 +79,20 @@ Implement tasks from an OpenSpec change.
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-7. **On completion or pause, show status**
+7. **Test hygiene (enforced on every task)**
+
+   Whenever a task adds or modifies a test script:
+
+   - Locate the project's primary testing documentation (e.g., `docs/testing.md`). If none exists, create one.
+   - Add or update instructions for the new/changed script:
+     - Script path (e.g., `node scripts/test-foo.mjs`)
+     - Prerequisites (build step, running extension host, etc.)
+     - Any CLI flags or environment variables required
+     - Expected output / pass criteria
+     - Any ordering dependencies relative to other scripts
+   - The testing documentation must be updated **before** marking the task `[x]`.
+
+8. **On completion or pause, show status**
 
    Display:
    - Tasks completed this session
@@ -144,8 +157,7 @@ What would you like to do?
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
-- Update task checkbox immediately after completing each task
-- Pause on errors, blockers, or unclear requirements - don't guess
+- Update task checkbox immediately after completing each task   - Test tasks are not complete until testing instructions in the project docs are added or updated- Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
 
 **Fluid Workflow Integration**
