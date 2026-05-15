@@ -16,12 +16,11 @@
  *   node scripts/test-proxy.mjs -p <PORT>    # override port manually
  *
  * Prerequisites:
- *   - The extension must be running (press F5 in VS Code).
+ *   - The extension must be running (F5 / Run Extension in VS Code or Cursor).
  *   - npm install must have been run (uses the ws package from node_modules).
  */
 
 import http from 'http';
-import net from 'net';
 import os from 'os';
 import path from 'path';
 import { WebSocket } from 'ws';
@@ -53,31 +52,34 @@ if (!proxyPort) {
 if (!proxyPort || isNaN(proxyPort)) {
   console.error('Could not determine proxy port.');
   console.error('Either pass it explicitly:  node scripts/test-proxy.mjs -p <PORT>');
-  console.error('Or make sure the extension is running (F5 in VS Code).');
+  console.error('Or make sure the extension is running (F5 / Run Extension in VS Code or Cursor).');
   process.exit(1);
 }
 
 /**
- * Connect to the extension IPC socket and read {"port": N}.
+ * GET / on the extension IPC socket (HTTP over Unix domain socket) and read {"port": N}.
  * Returns null if the socket is not present or the extension isn't running.
  */
 function queryExtensionPort() {
   return new Promise((resolve) => {
-    const socket = net.createConnection(IPC_SOCKET_PATH);
-    let buf = '';
-
-    socket.setTimeout(3000);
-    socket.on('data', (d) => { buf += d.toString(); });
-    socket.on('end', () => {
-      try {
-        const parsed = JSON.parse(buf.trim());
-        resolve(typeof parsed.port === 'number' ? parsed.port : null);
-      } catch {
-        resolve(null);
-      }
-    });
-    socket.on('error', () => resolve(null));
-    socket.on('timeout', () => { socket.destroy(); resolve(null); });
+    const req = http.request(
+      { socketPath: IPC_SOCKET_PATH, path: '/', method: 'GET', timeout: 3000 },
+      (res) => {
+        let buf = '';
+        res.on('data', (d) => { buf += d.toString(); });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(buf.trim());
+            resolve(typeof parsed.port === 'number' ? parsed.port : null);
+          } catch {
+            resolve(null);
+          }
+        });
+      },
+    );
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.end();
   });
 }
 
