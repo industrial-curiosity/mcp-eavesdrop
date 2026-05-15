@@ -99,18 +99,20 @@ Update a spec's artifacts (requirements and scenarios) following OpenSpec princi
    - REMOVED: <N> requirement(s) — <brief titles>
    ```
 
-7. **Clear affected tasks in the active change**
+7. **Update all affected change artifacts**
 
-   If the spec is associated with an active change:
+   If the spec is associated with an active change, **always** perform the following without waiting to be asked:
+
+   **tasks.md (required):**
    - Read the change's tasks file at `openspec/changes/<name>/tasks.md`
-   - Identify any completed tasks (`- [x]`) whose implementation is directly invalidated by the spec changes (e.g., a requirement was added, modified, or removed that affects previously completed work)
-   - Uncheck those tasks: `- [x]` → `- [ ]` so they are re-implemented on the next apply
-   - Announce which tasks were cleared and why
+   - **Clear invalidated tasks:** identify completed tasks (`- [x]`) whose implementation is directly invalidated by the spec changes (e.g., a requirement was modified or removed that affects previously completed work); uncheck those tasks (`- [x]` → `- [ ]`) and note why
+   - **Add gap tasks:** identify any new or modified requirements that have no corresponding task; append concise `- [ ]` task entries under the appropriate section (or a new section if needed) so the change stays implementable
+   - Announce all tasks cleared and all tasks added
 
-   Also remind the user:
-   - Design decisions in `design.md` may be affected by the spec changes
-
-   Offer to review those artifacts: "Would you like me to review design.md for gaps?"
+   **design.md (required):**
+   - Read `openspec/changes/<name>/design.md`
+   - Identify any decisions or context that contradict or are invalidated by the spec changes
+   - Announce any gaps or conflicts found; if none, state that design.md remains consistent
 
 **Output On Success**
 
