@@ -28,6 +28,14 @@
       {
         "command": "myai.showMcpConfig",
         "title": "MyAI: Show Proxy MCP Config"
+      },
+      {
+        "command": "myai.enableMonitoring",
+        "title": "MyAI: Enable MCP Monitoring"
+      },
+      {
+        "command": "myai.disableMonitoring",
+        "title": "MyAI: Disable MCP Monitoring"
       }
     ]
   },
@@ -35,6 +43,7 @@
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
     "vscode:prepublish": "node build.mjs",
+    "vscode:uninstall": "node ./dist/lifecycle.js",
     "package": "vsce package"
   },
   "dependencies": {

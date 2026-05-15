@@ -3884,6 +3884,33 @@ server.on("request", async (req, res) => {
     res.end("{}");
     return;
   }
+  if (reqUrl.pathname === "/internal/telemetry" && req.method === "POST") {
+    let body2;
+    try {
+      body2 = await readBody(req);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "Invalid body" }));
+      return;
+    }
+    let event;
+    try {
+      event = JSON.parse(body2);
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "Malformed JSON" }));
+      return;
+    }
+    if (typeof event.id !== "string" || typeof event.type !== "string" || typeof event.timestamp !== "number") {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "Missing required fields: id, type, timestamp" }));
+      return;
+    }
+    broadcaster.broadcast(event);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end("{}");
+    return;
+  }
   if (req.method !== "POST") {
     res.writeHead(405);
     res.end("Method Not Allowed");

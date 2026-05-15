@@ -29,7 +29,7 @@ The MyAI extension currently only proxies HTTP MCP servers, missing all stdio-ba
 ### Modified Capabilities
 
 - `mcp-proxy`: Extend to accept telemetry POSTs from the stdio wrapper (same event format, new internal endpoint or existing `/internal/*` pattern); drop the HTTP-only restriction in `readMcpConfig`
-- `extension-lifecycle`: Add stale wrapper detection on activate; add `myai.enableMonitoring` and `myai.disableMonitoring` command registration; deploy wrapper to `~/.myai/` on first enable
+- `extension-lifecycle`: Add stale wrapper detection on activate; add `myai.enableMonitoring` and `myai.disableMonitoring` command registration; deploy wrapper to `~/.myai/` on first enable; improve `myai.showMcpConfig` to surface all server types (HTTP and stdio) from workspace or user-level config with a fallback, replacing the previous HTTP-only behaviour that appeared as a no-op for stdio-only configurations
 
 ## Impact
 

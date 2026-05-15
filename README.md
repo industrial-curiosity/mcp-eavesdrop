@@ -36,6 +36,34 @@ A VS Code WebView panel renders the live activity feed and historical session lo
 
 This extension uses only the standard VS Code extension API (`vscode.*`) and is intended to be fully compatible with all VSCodium-based editors without modification.
 
+## MCP Monitoring
+
+MyAI can monitor stdio MCP servers by wrapping your user `mcp.json` entries.
+
+### Enable Monitoring
+
+Run `MyAI: Enable MCP Monitoring` from the Command Palette.
+
+- MyAI detects whether you are running VS Code or Cursor.
+- MyAI resolves your user config path (`mcp.json`) and shows it before making changes.
+- You will usually see one trust prompt per MCP server after the file is rewritten.
+
+### Disable Monitoring
+
+Run `MyAI: Disable MCP Monitoring`.
+
+- MyAI restores each wrapped entry back to its original command/args/env.
+- If nothing is wrapped, MyAI shows an informational message and leaves files unchanged.
+
+### If Extension Is Uninstalled Before Disable
+
+This extension includes a `vscode:uninstall` lifecycle script that attempts to restore wrapped entries automatically and remove `~/.myai/`.
+
+If that hook does not run in your environment:
+
+1. Reinstall and run `MyAI: Disable MCP Monitoring`, or
+2. Manually restore entries by replacing wrapped `node ~/.myai/stdio-wrapper.js ...` entries with the original values stored in `MYAI_REAL_SERVER`.
+
 ## What This Extension Cannot Do
 
 - Observe the model's internal reasoning or chain-of-thought (not exposed by any editor)

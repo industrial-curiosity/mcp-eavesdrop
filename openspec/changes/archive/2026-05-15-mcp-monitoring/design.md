@@ -113,6 +113,23 @@ Root key differs: VS Code uses `"servers"`, Cursor uses `"mcpServers"`. The rewr
 
 No data migration required — no persistent state beyond `mcp.json` and `~/.myai/stdio-wrapper.js`.
 
+### Decision 8: `myai.showMcpConfig` reads IDE user-level `mcp.json` only (this phase)
+
+The command reads all configured servers (HTTP and stdio) from the IDE user-level `mcp.json` exclusively. It surfaces both server types in a single output view, generating a proxy snippet for HTTP servers and a listing with Enable Monitoring guidance for stdio servers. Workspace-level `.vscode/mcp.json` is out of scope for this phase and will be integrated later.
+
+**Alternatives considered:**
+- *Separate commands for HTTP and stdio*: Adds surface area and requires the user to know which command applies before they've seen their config.
+- *Show only HTTP servers and silently skip stdio*: Causes apparent "nothing happened" behavior for any user whose config is entirely stdio-based — which is the common real-world case. Confusing and unhelpful.
+- *Workspace-first with IDE fallback*: Originally planned, but deferred — workspace config adds complexity around root-key detection and multi-root workspaces that is better tackled as a dedicated follow-on.
+
+The output always annotates which file was read (`// Source: <path>`), and always closes with the appropriate next action for each server type found.
+
+### Decision 9: Internal telemetry test must complete the event lifecycle
+
+The smoke test (`scripts/test-proxy.mjs`) verifies `/internal/telemetry` broadcasting by posting a synthetic event pair — `tool_call_started` immediately followed by `tool_call_completed` with the same `id`. Posting only a started event left a permanent in-progress spinner in the AI Agent Monitor panel during test runs.
+
+**Rationale:** Test harnesses that interact with the live UI must clean up any state they create. A started event without a terminal (completed/failed) event is valid in production but incorrect in a test that leaves the panel open for visual inspection.
+
 ## Open Questions
 
 - Does Cursor's `vscode:uninstall` hook actually fire? Needs a test install/uninstall cycle in Cursor to verify Layer 1 works, or whether Layer 2 must be the primary safety net for Cursor users.

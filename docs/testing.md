@@ -130,6 +130,8 @@ PASS — response is correct.
 Check the AI Agent Monitor panel: you should see an "echo-test" entry with a green ✓ and a duration.
 ```
 
+The script also sends a synthetic internal telemetry pair (`tool_call_started` then `tool_call_completed`) to verify `/internal/telemetry` broadcasting without leaving an in-progress spinner in the panel.
+
 ### 3c. Verify the panel updates
 
 After the script completes, look at the **AI Agent Monitor** panel in the Extension Development Host window:
