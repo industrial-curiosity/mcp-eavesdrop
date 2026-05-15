@@ -64,7 +64,16 @@ Implement tasks from an OpenSpec change.
    - Remaining tasks overview
    - Dynamic instruction from CLI
 
-6. **Implement tasks (loop until done or blocked)**
+6. **Clear tasks invalidated by spec or design changes**
+
+   Before implementing, check whether any previously-completed tasks need to be re-done:
+   - Review the current specs and design against tasks marked `[x]`
+   - If a completed task's implementation is clearly invalidated by changes to specs or design since it was last worked on, uncheck it: `- [x]` → `- [ ]`
+   - Announce which tasks were cleared and the reason before proceeding
+
+   Only clear tasks when there is a concrete, traceable reason (e.g., a requirement was added, modified, or removed that directly affects the completed work). Do not speculatively clear tasks.
+
+7. **Implement tasks (loop until done or blocked)**
 
    For each pending task:
    - Show which task is being worked on
@@ -79,7 +88,7 @@ Implement tasks from an OpenSpec change.
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-7. **Test hygiene (enforced on every task)**
+8. **Test hygiene (enforced on every task)**
 
    Whenever a task adds or modifies a test script:
 
@@ -92,7 +101,7 @@ Implement tasks from an OpenSpec change.
      - Any ordering dependencies relative to other scripts
    - The testing documentation must be updated **before** marking the task `[x]`.
 
-8. **On completion or pause, show status**
+9. **On completion or pause, show status**
 
    Display:
    - Tasks completed this session
