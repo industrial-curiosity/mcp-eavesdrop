@@ -149,6 +149,41 @@ server.on('request', async (req: http.IncomingMessage, res: http.ServerResponse)
     return;
   }
 
+  if (reqUrl.pathname === '/internal/telemetry' && req.method === 'POST') {
+    let body: string;
+    try {
+      body = await readBody(req);
+    } catch {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid body' }));
+      return;
+    }
+
+    let event: McpToolEvent;
+    try {
+      event = JSON.parse(body) as McpToolEvent;
+    } catch {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Malformed JSON' }));
+      return;
+    }
+
+    if (
+      typeof event.id !== 'string' ||
+      typeof event.type !== 'string' ||
+      typeof event.timestamp !== 'number'
+    ) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing required fields: id, type, timestamp' }));
+      return;
+    }
+
+    broadcaster.broadcast(event);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{}');
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.writeHead(405);
     res.end('Method Not Allowed');

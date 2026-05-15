@@ -201,6 +201,35 @@ function callThroughProxy(proxyPort, upstreamPort, toolName, toolArgs) {
   });
 }
 
+function postInternalTelemetry(proxyPort, event) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(event);
+
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: proxyPort,
+      path: '/internal/telemetry',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({
+        statusCode: res.statusCode ?? 0,
+        body: Buffer.concat(chunks).toString('utf8'),
+      }));
+    });
+
+    req.on('error', reject);
+    req.setTimeout(10_000, () => req.destroy(new Error('internal telemetry request timed out after 10s')));
+    req.write(body);
+    req.end();
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Assertions
 // ---------------------------------------------------------------------------
@@ -256,6 +285,43 @@ async function main() {
     // Assert events
     assert(startedEvent.serverName === 'mock', 'started event should have serverName "mock"');
     assert(typeof completedEvent.durationMs === 'number', 'completed event should have durationMs');
+
+    // Assert /internal/telemetry endpoint also broadcasts and resolves the event
+    const internalId = `manual-${Date.now()}`;
+
+    const internalStarted = {
+      id: internalId,
+      type: 'tool_call_started',
+      timestamp: Date.now(),
+      toolName: 'manual-telemetry',
+      serverName: 'internal-test',
+    };
+    const startedResult = await postInternalTelemetry(proxyPort, internalStarted);
+    assert(startedResult.statusCode === 200, '/internal/telemetry started should return 200');
+
+    const startedBroadcast = await waitForEvent(
+      events,
+      (e) => e.id === internalId && e.type === 'tool_call_started',
+    );
+    assert(startedBroadcast.serverName === 'internal-test', 'internal started should be broadcast');
+
+    const internalCompleted = {
+      id: internalId,
+      type: 'tool_call_completed',
+      timestamp: Date.now(),
+      toolName: 'manual-telemetry',
+      serverName: 'internal-test',
+      durationMs: 1,
+      result: { ok: true },
+    };
+    const completedResult = await postInternalTelemetry(proxyPort, internalCompleted);
+    assert(completedResult.statusCode === 200, '/internal/telemetry completed should return 200');
+
+    const completedBroadcast = await waitForEvent(
+      events,
+      (e) => e.id === internalId && e.type === 'tool_call_completed',
+    );
+    assert(completedBroadcast.result?.ok === true, 'internal completed should be broadcast');
 
   } finally {
     ws.close();

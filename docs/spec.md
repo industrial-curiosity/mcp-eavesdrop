@@ -7,9 +7,13 @@ myai-extension/
 ├── package.json               # VS Code extension manifest
 ├── src/
 │   ├── extension.ts           # Extension entry point (activate/deactivate)
+│   ├── lifecycle.ts           # Uninstall restore script entry point
+│   ├── mcp-config.ts          # IDE detection and config path helpers
+│   ├── mcp-wrap.ts            # Wrap/unwrap MCP entry helpers
+│   ├── monitoring-commands.ts # Enable/disable monitoring commands
 │   ├── proxy/
 │   │   ├── server.ts          # MCP proxy server (spawned as child process)
-│   │   ├── interceptor.ts     # Request/response capture logic
+│   │   ├── stdio-wrapper.ts   # Stdio MCP wrapper process
 │   │   └── eventEmitter.ts    # WebSocket/SSE event broadcaster
 │   ├── panel/
 │   │   ├── AgentPanel.ts      # WebView panel controller
@@ -17,6 +21,8 @@ myai-extension/
 │   │       ├── index.html     # WebView shell
 │   │       ├── app.ts         # WebView frontend (vanilla TS or React)
 │   │       └── styles.css
+│   ├── stale-check.ts         # Activation stale-wrapper detection
+│   ├── wrapper-deploy.ts      # Stable wrapper deployment to ~/.myai/
 │   └── types/
 │       └── events.ts          # Shared event type definitions
 ├── docs/
