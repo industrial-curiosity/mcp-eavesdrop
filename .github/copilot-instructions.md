@@ -1,0 +1,6 @@
+# Copilot Instructions
+
+## Skill files
+
+When asked to update, edit, or create skills in this repo, always use `.opsx/skills/<skill-name>/SKILL.md`.
+Do **not** edit `.github/skills/` — that directory is a stale copy and should be ignored.

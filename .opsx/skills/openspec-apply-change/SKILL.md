@@ -101,7 +101,16 @@ Implement tasks from an OpenSpec change.
      - Any ordering dependencies relative to other scripts
    - The testing documentation must be updated **before** marking the task `[x]`.
 
-9. **On completion or pause, show status**
+9. **Doc hygiene (enforced on every task)**
+
+   After completing all tasks (or when implementation introduces user-facing or architectural changes), update the project documentation:
+
+   - **`README.md`**: Update if any of the following changed: features, commands, configuration options, compatibility, usage instructions, or the high-level description of how the extension works.
+   - **`docs/spec.md`** (architecture doc): Update if any of the following changed: project structure (files added/removed/moved), component responsibilities, activation events, registered commands, data flow, or inter-component interfaces.
+   - These updates must be made **before** marking the final task `[x]`.
+   - If only internal implementation details changed with no user-visible or architectural impact, no doc update is required — but briefly state why.
+
+10. **On completion or pause, show status**
 
    Display:
    - Tasks completed this session
@@ -166,7 +175,10 @@ What would you like to do?
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
-- Update task checkbox immediately after completing each task   - Test tasks are not complete until testing instructions in the project docs are added or updated- Pause on errors, blockers, or unclear requirements - don't guess
+- Update task checkbox immediately after completing each task
+- Test tasks are not complete until testing instructions in the project docs are added or updated
+- README and architecture docs (`docs/spec.md`) must be updated before the final task is marked complete if any user-facing or architectural change was made
+- Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
 
 **Fluid Workflow Integration**

@@ -92,6 +92,16 @@ After completing all artifacts, summarize:
 - What's ready: "All artifacts created! Ready for implementation."
 - Prompt: "Run `/opsx:apply` or ask me to implement to start working on the tasks."
 
+**Doc Update Requirement**
+
+When generating `tasks.md`, always include a doc update task at the end of the task list:
+
+```
+- [ ] Update README.md and docs/spec.md to reflect any user-facing or architectural changes introduced by this change
+```
+
+This ensures that documentation stays in sync with every implemented change.
+
 **Artifact Creation Guidelines**
 
 - Follow the `instruction` field from `openspec instructions` for each artifact type

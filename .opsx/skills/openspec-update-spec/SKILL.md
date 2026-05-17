@@ -99,6 +99,15 @@ Update a spec's artifacts (requirements and scenarios) following OpenSpec princi
    - REMOVED: <N> requirement(s) — <brief titles>
    ```
 
+6a. **Update README and architecture docs**
+
+   After writing the spec, review whether the changes have any impact on the project's high-level documentation:
+
+   - **`README.md`**: Update if the spec change affects user-visible behavior, features, commands, configuration, or the extension's described purpose.
+   - **`docs/spec.md`** (architecture doc): Update if the spec change affects component responsibilities, project structure, data flow, or inter-component interfaces.
+
+   If neither file needs updating (e.g., the spec change is purely internal or refinement of existing behavior), briefly state why no update was needed.
+
 7. **Update all affected change artifacts**
 
    If the spec is associated with an active change, **always** perform the following without waiting to be asked:
