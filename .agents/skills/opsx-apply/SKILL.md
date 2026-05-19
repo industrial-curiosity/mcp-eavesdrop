@@ -1,6 +1,6 @@
 ---
-name: openspec-apply-change
-description: Implement tasks from an OpenSpec change. Use when the user wants to start implementing, continue implementation, or work through tasks.
+name: opsx-apply
+description: Use this skill when implementing tasks from an OpenSpec change. Activate when the user wants to start coding, continue implementation, work through tasks, or resume progress on a change.
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:

@@ -1,13 +1,17 @@
 ---
-name: /opsx-update-spec
-id: opsx-update-spec
-category: Workflow
-description: Update a spec's artifacts (requirements and scenarios) following OpenSpec principles
+name: opsx-update
+description: Use this skill when updating an existing spec's requirements or scenarios. Activate when the user wants to add, modify, or remove requirements, refine acceptance criteria, or adjust spec content — including delta specs inside an active change.
+license: MIT
+compatibility: Requires openspec CLI.
+metadata:
+  author: openspec
+  version: "1.0"
+  generatedBy: "1.3.1"
 ---
 
 Update a spec's artifacts (requirements and scenarios) following OpenSpec principles.
 
-**Input**: Optionally specify a spec name (e.g., `/opsx:update-spec agent-monitor-panel`) and a description of the changes to make. If omitted, check if they can be inferred from conversation context.
+**Input**: Optionally specify a spec name (e.g., `agent-monitor-panel`) and a description of the changes to make. If omitted, check if they can be inferred from conversation context.
 
 **Steps**
 
@@ -95,13 +99,29 @@ Update a spec's artifacts (requirements and scenarios) following OpenSpec princi
    - REMOVED: <N> requirement(s) — <brief titles>
    ```
 
-7. **Check for downstream impact**
+6a. **Update README and architecture docs**
 
-   If the spec is associated with an active change, remind the user:
-   - Tasks in `tasks.md` may need updating to reflect new/changed requirements
-   - Design decisions in `design.md` may be affected
+   After writing the spec, review whether the changes have any impact on the project's high-level documentation:
 
-   Offer to review those artifacts: "Would you like me to review tasks.md for gaps?"
+   - **`README.md`**: Update if the spec change affects user-visible behavior, features, commands, configuration, or the extension's described purpose.
+   - **`docs/spec.md`** (architecture doc): Update if the spec change affects component responsibilities, project structure, data flow, or inter-component interfaces.
+
+   If neither file needs updating (e.g., the spec change is purely internal or refinement of existing behavior), briefly state why no update was needed.
+
+7. **Update all affected change artifacts**
+
+   If the spec is associated with an active change, **always** perform the following without waiting to be asked:
+
+   **tasks.md (required):**
+   - Read the change's tasks file at `openspec/changes/<name>/tasks.md`
+   - **Clear invalidated tasks:** identify completed tasks (`- [x]`) whose implementation is directly invalidated by the spec changes (e.g., a requirement was modified or removed that affects previously completed work); uncheck those tasks (`- [x]` → `- [ ]`) and note why
+   - **Add gap tasks:** identify any new or modified requirements that have no corresponding task; append concise `- [ ]` task entries under the appropriate section (or a new section if needed) so the change stays implementable
+   - Announce all tasks cleared and all tasks added
+
+   **design.md (required):**
+   - Read `openspec/changes/<name>/design.md`
+   - Identify any decisions or context that contradict or are invalidated by the spec changes
+   - Announce any gaps or conflicts found; if none, state that design.md remains consistent
 
 **Output On Success**
 

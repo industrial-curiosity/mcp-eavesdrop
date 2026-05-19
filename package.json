@@ -44,8 +44,7 @@
     "watch": "node build.mjs --watch",
     "vscode:prepublish": "node build.mjs",
     "vscode:uninstall": "node ./dist/lifecycle.js",
-    "package": "vsce package",
-    "opsx": "node scripts/opsx.mjs"
+    "package": "vsce package"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",

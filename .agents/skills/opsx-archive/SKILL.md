@@ -1,6 +1,6 @@
 ---
-name: openspec-archive-change
-description: Archive a completed change in the experimental workflow. Use when the user wants to finalize and archive a change after implementation is complete.
+name: opsx-archive
+description: Use this skill when archiving a completed OpenSpec change. Activate when the user wants to finalize, archive, or close out a change after all tasks are done.
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:

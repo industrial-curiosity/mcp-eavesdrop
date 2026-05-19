@@ -76,21 +76,6 @@ Developers building or debugging AI agent workflows who want operational visibil
 
 ## AI Prompts and Skills
 
-This repository ships OpenSpec workflow prompts and skills that work in both GitHub Copilot (`.github/`) and Cursor (`.cursor/`). The `.opsx/` directory is the single source of truth — the `.github/` and `.cursor/` directories are generated from it.
+This repository ships OpenSpec workflow prompts and skills for both GitHub Copilot and Cursor.
 
-### Syncing after changes
-
-After modifying any file under `.opsx/prompts/` or `.opsx/skills/`, run:
-
-```sh
-npm run opsx
-```
-
-This is both the init and update command. It overwrites `.cursor/commands/` and `.github/prompts/` and both `skills/` directories to match `.opsx/`. Run it whenever `.opsx/` changes.
-
-### How it works
-
-| Source | Cursor output | GitHub Copilot output |
-|---|---|---|
-| `.opsx/prompts/*.md` | `.cursor/commands/*.md` (verbatim) | `.github/prompts/*.prompt.md` (`name`/`id`/`category` frontmatter fields stripped) |
-| `.opsx/skills/*/SKILL.md` | `.cursor/skills/*/SKILL.md` | `.github/skills/*/SKILL.md` |
+- **Skills** live in `.agents/skills/` — the [Agent Skills](https://agentskills.io/specification) cross-client convention, scanned directly by compatible clients.

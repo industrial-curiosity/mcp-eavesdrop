@@ -1,6 +1,6 @@
 ---
-name: openspec-explore
-description: Enter explore mode - a thinking partner for exploring ideas, investigating problems, and clarifying requirements. Use when the user wants to think through something before or during a change.
+name: opsx-explore
+description: Use this skill when the user wants to think through a problem, explore ideas, or clarify requirements before or during a change. Activate for brainstorming, scoping, investigating tradeoffs, or any open-ended discussion — even if the user doesn't say "explore".
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
