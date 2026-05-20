@@ -11,5 +11,9 @@ node_modules/**
 .eslintrc.json
 tsconfig.json
 build.mjs
+scripts/**
 .env
 .envrc
+.agents/**
+.cursor/**
+.gitignore

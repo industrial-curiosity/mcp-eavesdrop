@@ -14,10 +14,10 @@ const extensionBuild = {
   sourcemap: true,
 };
 
-const proxyBuild = {
-  entryPoints: ['src/proxy/server.ts'],
+const daemonBuild = {
+  entryPoints: ['src/daemon/index.ts'],
   bundle: true,
-  outfile: 'dist/proxy/server.js',
+  outfile: 'dist/daemon/index.js',
   format: /** @type {const} */ ('cjs'),
   platform: /** @type {const} */ ('node'),
   target: 'node18',
@@ -104,9 +104,9 @@ async function copyAssets() {
 }
 
 if (isWatch) {
-  const [extCtx, proxyCtx, wrapperCtx, lifecycleCtx, webviewCtx, ...utilsCtx] = await Promise.all([
+  const [extCtx, daemonCtx, wrapperCtx, lifecycleCtx, webviewCtx, ...utilsCtx] = await Promise.all([
     esbuild.context(extensionBuild),
-    esbuild.context(proxyBuild),
+    esbuild.context(daemonBuild),
     esbuild.context(stdioWrapperBuild),
     esbuild.context(lifecycleBuild),
     esbuild.context(webviewBuild),
@@ -114,7 +114,7 @@ if (isWatch) {
   ]);
   await Promise.all([
     extCtx.watch(),
-    proxyCtx.watch(),
+    daemonCtx.watch(),
     wrapperCtx.watch(),
     lifecycleCtx.watch(),
     webviewCtx.watch(),
@@ -125,7 +125,7 @@ if (isWatch) {
 } else {
   await Promise.all([
     esbuild.build(extensionBuild),
-    esbuild.build(proxyBuild),
+    esbuild.build(daemonBuild),
     esbuild.build(stdioWrapperBuild),
     esbuild.build(lifecycleBuild),
     esbuild.build(webviewBuild),
