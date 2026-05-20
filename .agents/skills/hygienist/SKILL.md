@@ -1,6 +1,6 @@
 ---
 name: hygienist
-description: Use this skill to check and fix test and documentation hygiene after code changes. Activate when implementation changes an interface, constant, file path, protocol, or data structure that tests or docs might reference. Also activate when adding or modifying test scripts, when user-facing or architectural behavior changes, or when a spec requirement is modified or removed. Can be invoked ad-hoc or called from within other skills (opsx-apply, opsx-update).
+description: Use this skill to check and fix test and documentation hygiene after code changes. Activate when implementation changes an interface, constant, file path, protocol, or data structure that tests or docs might reference. Also activate when user-facing or architectural behavior changes, or when a spec requirement is modified or removed. Can be invoked ad-hoc or called from within other skills (opsx-apply, opsx-update). For how to write or structure test scripts correctly, see the `test-writing` skill.
 license: MIT
 metadata:
   author: openspec
@@ -25,6 +25,7 @@ Run this check whenever implementation changes any interface, constant, file pat
 3. For each hit, update the script to use the new value.
 4. Also update any top-of-file comment blocks in those scripts (e.g., `Usage:`, `Prerequisites:`) if the change affects how the script is run or what it depends on.
 5. This check applies to **all** test scripts in `scripts/` — not just ones added or modified by the current task.
+6. When editing a test script, follow the conventions in the `test-writing` skill (assertion strategy, environment detection, logging, cleanup ownership).
 
 ---
 
