@@ -27,7 +27,8 @@ The extension SHALL restore the AI Agent Monitor panel when the daemon reconnect
 #### Scenario: Daemon reconnected and panel is already open
 - **WHEN** the extension reconnects to the daemon
 - **AND** a panel is already open
-- **THEN** the extension SHALL send a fresh `init` message to the panel without disrupting it
+- **THEN** the extension host SHALL send `{ type: 'status', connected: true }` to the panel
+- **THEN** the extension host SHALL re-fetch `GET /connections` and send `{ type: 'connections', connections }` to the panel
 
 #### Scenario: User closes the panel
 - **WHEN** the user closes the AI Agent Monitor panel

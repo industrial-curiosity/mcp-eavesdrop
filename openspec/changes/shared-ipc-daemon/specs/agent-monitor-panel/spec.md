@@ -1,32 +1,70 @@
 ## MODIFIED Requirements
 
-### Requirement: Panel connects to proxy event stream on load
-The panel WebView SHALL connect to the per-window relay server's SSE endpoint using the port received in the `init` message from the extension host. The relay server subscribes to the shared daemon's SSE stream and forwards all events to the webview.
+### Requirement: Panel receives live events from extension host
+The panel WebView SHALL be fully passive with respect to network connections. All live events SHALL be delivered by the extension host via `panel.webview.postMessage`. The webview SHALL NOT make any direct HTTP or WebSocket connection to the daemon or proxy. The CSP SHALL NOT include a `connect-src` directive.
 
-#### Scenario: Panel initializes successfully
-- **WHEN** the WebView receives an `init` message with `{ relayPort: number }`
-- **THEN** the panel SHALL open an EventSource connection to `http://127.0.0.1:<relayPort>/events`
-- **THEN** the panel SHALL send a `ready` message to the extension host
+#### Scenario: Panel signals readiness
+- **WHEN** the WebView finishes loading
+- **THEN** the panel SHALL send `{ type: 'ready' }` to the extension host via `vscode.postMessage`
+- **THEN** the extension host SHALL respond with `{ type: 'status', connected: boolean }` and `{ type: 'connections', connections: [...] }`
 
-#### Scenario: Relay connection lost
-- **WHEN** the EventSource connection to the relay drops
-- **THEN** the panel SHALL display a "Disconnected — reconnecting…" status indicator
-- **THEN** the panel SHALL attempt to reconnect with exponential backoff (max 10s interval)
+#### Scenario: Live event arrives
+- **WHEN** the extension host receives a parsed `McpToolEvent` from the daemon SSE stream
+- **THEN** the extension host SHALL send `{ type: 'event', event: McpToolEvent }` to the webview
+- **THEN** the panel SHALL render the event identically to a history event
+
+#### Scenario: Daemon disconnects while panel is open
+- **WHEN** the daemon SSE stream ends or errors
+- **THEN** the extension host SHALL send `{ type: 'status', connected: false }` to the webview
+- **THEN** the panel SHALL display "Disconnected — reconnecting…"
+- **THEN** the extension host (not the webview) SHALL manage reconnection to the daemon
+
+#### Scenario: Daemon reconnects while panel is open
+- **WHEN** the extension host successfully resubscribes to the daemon SSE stream
+- **THEN** the extension host SHALL send `{ type: 'status', connected: true }` to the webview
+- **THEN** the panel SHALL clear the disconnect indicator
 
 ---
 
 ### Requirement: Panel handles proxy port changes without user action
-The panel SHALL reconnect to the relay server automatically when the extension host sends a new `init` message with a changed port (e.g. after a daemon restart and relay restart).
+The extension host SHALL handle daemon port changes transparently. The webview SHALL NOT be involved in reconnection logic.
 
 #### Scenario: Daemon restarts while panel is open
-- **WHEN** the extension sends a new `init` message with a different `relayPort`
-- **THEN** the panel SHALL close the existing EventSource connection
-- **THEN** the panel SHALL open a new EventSource connection to the updated relay port
+- **WHEN** the daemon restarts and `~/.myai/daemon.json` reflects a new `proxyPort`
+- **THEN** the extension host SHALL detect the port change during reconnect
+- **THEN** the extension host SHALL update its internal state and re-subscribe to the daemon SSE stream
 - **THEN** no user action SHALL be required
+- **THEN** the webview SHALL receive only `{ type: 'status', connected: true }` — it SHALL NOT receive a port number
 
 ---
 
 ## ADDED Requirements
+
+### Requirement: Extension host subscribes to daemon SSE and forwards events to webview
+The extension host SHALL subscribe to the daemon's SSE stream via `GET /events` on the Unix socket. It SHALL parse raw SSE data lines, extract `McpToolEvent` objects, and forward each to the active webview panel via `postMessage`. The extension host SHALL also send `status` and `connections` messages on lifecycle transitions.
+
+#### Scenario: Subscription established on activation
+- **WHEN** the extension activates and the daemon is running
+- **THEN** the extension host SHALL open an HTTP request to `GET /events?instanceId=<id>` on `~/.myai/ipc.sock`
+- **THEN** on connection, the extension host SHALL set `daemonConnected = true` and send `{ type: 'status', connected: true }` to the panel
+
+#### Scenario: SSE event forwarding
+- **WHEN** the daemon emits a `data:` SSE line on the stream
+- **THEN** the extension host SHALL parse the JSON payload
+- **THEN** the extension host SHALL call `AgentPanel.postMessage({ type: 'event', event })`
+- **THEN** if `event.type === 'connections_changed'`, the extension host SHALL re-fetch `GET /connections` and send `{ type: 'connections', connections }` to the panel
+
+#### Scenario: Panel ready callback
+- **WHEN** the panel sends `{ type: 'ready' }` to the extension host
+- **THEN** `AgentPanel.onPanelReady` SHALL be called
+- **THEN** the extension host SHALL send the current `status` and re-fetch `connections` to initialize the panel
+
+#### Scenario: VS Code webview sandbox compatibility
+- **WHEN** the webview is running in VS Code's sandboxed Electron renderer
+- **THEN** all event delivery SHALL use `panel.webview.postMessage` (extension host → webview only)
+- **THEN** the webview CSP SHALL NOT include `connect-src` (no outbound network access from webview)
+
+---
 
 ### Requirement: Panel displays all connected windows in a sidebar
 The panel SHALL show a list of all currently connected extension instances (across all IDEs and workspaces) as reported by the daemon's `/connections` endpoint.

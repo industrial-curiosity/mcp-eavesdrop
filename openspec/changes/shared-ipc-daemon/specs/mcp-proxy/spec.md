@@ -5,8 +5,8 @@
 **Migration**: The daemon's proxy port is read from `~/.myai/daemon.json`. The extension no longer spawns a proxy child process.
 
 ### Requirement: Proxy WebSocket endpoint accepts multiple simultaneous clients
-**Reason**: Event fan-out is now handled by the daemon's SSE broadcast over the Unix socket. The per-window relay server exposes the SSE stream to the webview.
-**Migration**: The webview connects to the per-window relay's SSE endpoint instead of a WebSocket on a proxy TCP port.
+**Reason**: Event fan-out is now handled by the daemon's SSE broadcast. The extension host subscribes to the daemon SSE stream via Unix socket and pushes events to the webview via `panel.webview.postMessage`. No per-window relay server or proxy WebSocket endpoint is needed.
+**Migration**: The webview no longer connects to any network endpoint. The extension host owns the SSE subscription and forwards events to the webview.
 
 ---
 

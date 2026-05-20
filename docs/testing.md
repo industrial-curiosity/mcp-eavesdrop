@@ -257,13 +257,15 @@ Expected output ends with `PASS test-daemon`
 
 ### `test-daemon-lifecycle.mjs` — Multi-instance daemon lifecycle
 
-Verifies the daemon's self-termination logic. Registers two instances (A and B), deregisters A and confirms the daemon stays alive while B is connected, then deregisters B and asserts the daemon exits within 15 seconds.
+Verifies the daemon's self-termination logic. Kills any existing daemon first (for test isolation), then registers two instances (A and B), deregisters A and confirms the daemon stays alive while B is connected, then deregisters B and asserts the daemon exits within 15 seconds.
+
+**Note:** This test shuts down any running daemon before starting. If VS Code is running the extension, it will automatically respawn the daemon after this test completes.
 
 ```bash
 node scripts/test-daemon-lifecycle.mjs
 ```
 
-Expected output ends with `PASS` and the daemon process exits cleanly.
+Expected output ends with `All lifecycle tests passed ✓` and the daemon process exits cleanly.
 
 ---
 
@@ -296,6 +298,6 @@ Expected output ends with `PASS reconnect`
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | "Proxy failed to start" notification | `dist/proxy/server.js` missing | Run `npm run build` and restart the Extension Development Host |
-| Panel opens but spinner never resolves | WebSocket blocked or wrong port | Check the **MyAI** output channel for the port; confirm no firewall rules block loopback |
+| Panel opens but shows "Disconnected — reconnecting…" | Extension host not connected to daemon SSE, or daemon not running | Check the **MyAI** output channel; verify daemon is running (`cat ~/.myai/daemon.json`); reload window |
 | `vsce package` fails with "Missing publisher" | `publisher` field in package.json | Set it to your VS Code Marketplace publisher ID or any placeholder for local testing |
 | `tsc --noEmit` reports errors | Type mismatch | Run `npm run build` first; esbuild is lenient but tsc is strict |

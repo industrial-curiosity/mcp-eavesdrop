@@ -16,13 +16,47 @@ This extension addresses that gap by acting as an observable MCP proxy layer bet
 
 ### MCP Proxy
 
-The extension spawns a local MCP proxy server that sits between the agent and any configured MCP servers. Every tool call passes through this proxy, which records request/response pairs, timing, and correlation metadata before forwarding to the real server.
+The extension manages a shared background daemon (`~/.myai/`) that a single proxy server shared across all open IDE windows. Every tool call passes through this proxy, which records request/response pairs, timing, and correlation metadata before forwarding to the real server.
 
 The user reconfigures their MCP tool endpoints (in `mcp.json` or VS Code/Cursor settings) to point at the proxy instead of the real servers. The proxy transparently forwards all calls.
 
+### Shared IPC Daemon
+
+All open IDE windows (VS Code, Cursor, or any VS Code fork) connect to a single shared daemon process rather than each window running its own proxy. This means:
+
+- Events from all open windows are visible in any panel, with per-IDE and per-workspace filters.
+- Only one proxy port is used system-wide (dynamically selected from 7331–7360).
+- The daemon exits automatically when the last window closes.
+
+The daemon writes its state to `~/.myai/daemon.json`:
+
+```json
+{ "pid": 12345, "proxyPort": 7331, "socketPath": "/Users/you/.myai/ipc.sock", "startedAt": 1700000000000 }
+```
+
+#### `~/.myai/` directory structure
+
+| Path | Purpose |
+|---|---|
+| `~/.myai/daemon.json` | Daemon PID, proxy port, socket path (written at startup) |
+| `~/.myai/ipc.sock` | Unix domain socket for per-window → daemon IPC |
+| `~/.myai/ipc.lock` | Bootstrap lock (prevents duplicate daemon spawns) |
+| `~/.myai/stdio-wrapper.js` | Deployed wrapper script injected into `mcp.json` entries |
+| `~/.myai/logs/{ide}/{workspace}.jsonl` | Persistent NDJSON event log per IDE/workspace |
+
+#### Manual daemon restart
+
+If the daemon gets into a bad state (e.g., stale lock after a crash):
+
+1. Kill the daemon: `kill $(jq .pid ~/.myai/daemon.json)`
+2. Remove stale files: `rm -f ~/.myai/ipc.sock ~/.myai/ipc.lock`
+3. Reload any open VS Code/Cursor window (⌘⇧P → "Developer: Reload Window")
+
+The extension will automatically spawn a fresh daemon on next activation.
+
 ### Event Stream
 
-The proxy emits a structured event stream (WebSocket or SSE) for every tool lifecycle event: `tool_call_started`, `tool_call_completed`, `tool_call_failed`. The extension subscribes to this stream and updates the UI in real time.
+The proxy emits a structured event stream (SSE) for every tool lifecycle event: `tool_call_started`, `tool_call_completed`, `tool_call_failed`. Each window's extension subscribes to the daemon's SSE stream and relays events to its local webview panel in real time.
 
 ### WebView Panel
 
@@ -34,7 +68,7 @@ A VS Code WebView panel renders the live activity feed and historical session lo
 
 ## Compatibility
 
-This extension uses only the standard VS Code extension API (`vscode.*`) and is intended to be fully compatible with all VSCodium-based editors without modification.
+This extension uses only the standard VS Code extension API (`vscode.*`) and is intended to be fully compatible with all VSCodium-based editors without modification. VS Code and Cursor are both explicitly supported; both can connect to the same daemon simultaneously.
 
 ## MCP Monitoring
 

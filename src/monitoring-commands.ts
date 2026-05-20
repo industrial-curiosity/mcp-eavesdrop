@@ -5,8 +5,9 @@ import { isWrapped, unwrapEntry, wrapEntry } from './mcp-wrap';
 import { deployWrapper } from './wrapper-deploy';
 
 interface MonitoringCommandOptions {
-  ipcSocketPath: string;
-  proxyPortProvider: () => number | undefined;
+  ide: string;
+  workspaceSlug: string;
+  daemonProxyPortProvider: () => number | undefined;
 }
 
 type RootKey = 'servers' | 'mcpServers';
@@ -82,10 +83,10 @@ async function enableMonitoring(
     return;
   }
 
-  const deploy = deployWrapper(context);
-  const proxyPort = options.proxyPortProvider();
+  const deploy = deployWrapper(context, options.daemonProxyPortProvider() ?? 0);
+  const proxyPort = options.daemonProxyPortProvider();
   if (proxyPort === undefined) {
-    vscode.window.showErrorMessage('MyAI: Proxy is not running, cannot enable monitoring yet.');
+    vscode.window.showErrorMessage('MyAI: Daemon is not running, cannot enable monitoring yet.');
     return;
   }
 
@@ -101,8 +102,8 @@ async function enableMonitoring(
       configPath,
       extensionDir,
       wrapperVersion: deploy.version,
-      ipcSocket: options.ipcSocketPath,
-      proxyPort,
+      ide: options.ide,
+      workspaceSlug: options.workspaceSlug,
     });
   }
 
@@ -125,7 +126,7 @@ async function disableMonitoring(): Promise<void> {
 
   let restored = 0;
   for (const [name, entry] of entries) {
-    if (!entry?.env?.MYAI_IPC_SOCKET && !entry?.env?.MYAI_REAL_URL) {
+    if (!isWrapped(entry)) {
       continue;
     }
     root[name] = unwrapEntry(entry);
