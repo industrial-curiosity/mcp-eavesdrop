@@ -72,6 +72,7 @@ Depending on what the user brings, you might:
 - Identify what could go wrong
 - Find gaps in understanding
 - Suggest spikes or investigations
+- **Surface test and doc debt**: When exploring a change that touches interfaces, paths, protocols, or data structures, invoke the `hygienist` skill in read-only mode to flag test scripts and documentation that reference those things. Stale tests and docs are a hidden implementation cost — make them visible during scoping so they can be tracked as tasks.
 
 ---
 

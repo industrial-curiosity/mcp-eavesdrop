@@ -56,7 +56,19 @@ Implement tasks from an OpenSpec change.
    - **spec-driven**: proposal, specs, design, tasks
    - Other schemas: follow the contextFiles from CLI output
 
-5. **Show current progress**
+5. **Reconcile tasks.md with the codebase**
+
+   Before reporting progress, audit any tasks marked `- [ ]` against the actual source files.
+
+   For each unchecked task:
+   - Read the relevant source file(s) to determine whether the implementation already exists.
+   - **Already implemented, matches description**: mark `[x]` immediately.
+   - **Already implemented, but via a different approach**: update the task description to accurately reflect what was actually built, then mark `[x]`. Do not reset — the code is correct; the description was stale.
+   - **Partially implemented or unclear**: leave `- [ ]` but note what still needs doing.
+
+   Write a session-memory checkpoint after this pass (e.g., "Sections 1–9 verified complete; N tasks remain") so that if the session is resumed, the reconciliation is not repeated from scratch.
+
+6. **Show current progress**
 
    Display:
    - Schema being used
@@ -64,21 +76,23 @@ Implement tasks from an OpenSpec change.
    - Remaining tasks overview
    - Dynamic instruction from CLI
 
-6. **Clear tasks invalidated by spec or design changes**
+7. **Clear tasks invalidated by spec or design changes**
 
    Before implementing, check whether any previously-completed tasks need to be re-done:
    - Review the current specs and design against tasks marked `[x]`
-   - If a completed task's implementation is clearly invalidated by changes to specs or design since it was last worked on, uncheck it: `- [x]` → `- [ ]`
-   - Announce which tasks were cleared and the reason before proceeding
+   - **Clearing criterion (code-centric):** A `[x]` task is cleared only if the *code it produced* must be changed or deleted because a requirement was added, modified, or removed in a way that makes the existing code incorrect. A task is **not** cleared just because its description wording no longer matches the spec verbatim, or because the approach taken differed from what the spec described.
+   - If the task description is stale but the code is still correct: update the description to match the code and leave it `[x]`.
+   - Announce which tasks were cleared and the reason before proceeding.
 
-   Only clear tasks when there is a concrete, traceable reason (e.g., a requirement was added, modified, or removed that directly affects the completed work). Do not speculatively clear tasks.
+   Only clear tasks when there is a concrete, traceable reason (e.g., a requirement was added, modified, or removed that directly affects the correctness of the completed work). Do not speculatively clear tasks.
 
-7. **Implement tasks (loop until done or blocked)**
+8. **Implement tasks (loop until done or blocked)**
 
    For each pending task:
    - Show which task is being worked on
    - Make the code changes required
    - Keep changes minimal and focused
+   - If the implementation approach diverges from the task's literal description but still satisfies the intent, update the task description to match before marking it done
    - Mark task complete in the tasks file: `- [ ]` → `- [x]`
    - Continue to next task
 
@@ -88,27 +102,14 @@ Implement tasks from an OpenSpec change.
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
-8. **Test hygiene (enforced on every task)**
+9. **Hygiene (enforced on every task)**
 
-   Whenever a task adds or modifies a test script:
+   Before marking a task `[x]`, run the `hygienist` skill with the context of what this task changed:
+   - What interfaces, constants, paths, or protocols were modified (for staleness checks)
+   - Whether any test scripts were added or changed (for testing docs)
+   - Whether user-facing or architectural behavior changed (for project docs)
 
-   - Locate the project's primary testing documentation (e.g., `docs/testing.md`). If none exists, create one.
-   - Add or update instructions for the new/changed script:
-     - Script path (e.g., `node scripts/test-foo.mjs`)
-     - Prerequisites (build step, running extension host, etc.)
-     - Any CLI flags or environment variables required
-     - Expected output / pass criteria
-     - Any ordering dependencies relative to other scripts
-   - The testing documentation must be updated **before** marking the task `[x]`.
-
-9. **Doc hygiene (enforced on every task)**
-
-   After completing all tasks (or when implementation introduces user-facing or architectural changes), update the project documentation:
-
-   - **`README.md`**: Update if any of the following changed: features, commands, configuration options, compatibility, usage instructions, or the high-level description of how the extension works.
-   - **`docs/spec.md`** (architecture doc): Update if any of the following changed: project structure (files added/removed/moved), component responsibilities, activation events, registered commands, data flow, or inter-component interfaces.
-   - These updates must be made **before** marking the final task `[x]`.
-   - If only internal implementation details changed with no user-visible or architectural impact, no doc update is required — but briefly state why.
+   The hygienist will run all applicable checks and report what was updated. Do not mark the task complete until the hygiene report is clean.
 
 10. **On completion or pause, show status**
 

@@ -34,6 +34,13 @@ Read-only operations are safe to run freely:
 - Fetching remote metadata (fetch, ls-remote)
 - Viewing file contents, blame, or history
 
+## .gitignore Rules
+
+When editing `.gitignore`:
+- **Never add paths that live outside the repository root.** Absolute paths (e.g. `/Users/...`) and paths that only exist outside the repo (e.g. `~/.myai/`) are meaningless to git and must not be added.
+- Only add patterns for files or directories that could realistically appear inside the repo.
+- If a path is described as living outside the repo (e.g. in a home directory or system path), do not add it to `.gitignore` — it will never be tracked by git regardless.
+
 ## Workflow
 
 1. Use read-only tools to gather current state before proposing any changes.

@@ -114,20 +114,18 @@ Update a spec's artifacts (requirements and scenarios) following OpenSpec princi
 
    **tasks.md (required):**
    - Read the change's tasks file at `openspec/changes/<name>/tasks.md`
-   - **Clear invalidated tasks:** identify completed tasks (`- [x]`) whose implementation is directly invalidated by the spec changes (e.g., a requirement was modified or removed that affects previously completed work); uncheck those tasks (`- [x]` → `- [ ]`) and note why
-   - **Add gap tasks:** identify any new or modified requirements that have no corresponding task; append concise `- [ ]` task entries under the appropriate section (or a new section if needed) so the change stays implementable
+   - **Clear invalidated tasks — code-centric rule:** A `[x]` task is cleared only if the *code artifact it produced* is directly broken or incompatible with the updated requirements. Ask: "Does this code need to change?" If yes, uncheck (`- [x]` → `- [ ]`) and state why. If the task description is merely stale but the code is still correct, update the description and leave it `[x]`.
+   - **Do not** clear tasks simply because the spec wording changed, the approach differed from what the spec described, or as a precaution — only when the existing code is actually wrong.
+   - **Add gap tasks — code-verified:** Before adding a new `- [ ]` task for a spec gap, check the relevant source files to confirm the gap is not already implemented. Only create a task if the code does not already satisfy the requirement. Base task descriptions on the current implementation state, not on the prior spec assumption.
    - Announce all tasks cleared and all tasks added
 
-   **design.md (required):**
+**design.md (required):**
    - Read `openspec/changes/<name>/design.md`
    - Identify any decisions or context that contradict or are invalidated by the spec changes
    - Announce any gaps or conflicts found; if none, state that design.md remains consistent
 
-**Output On Success**
-
-```
-## Spec Updated: <spec-name>
-**Target:** openspec/[changes/<change-name>/]specs/<spec-name>/spec.md
+   **Test scripts (required):**
+   Run the `hygienist` skill (Check 4 — spec-to-test traceability) with the list of MODIFIED and REMOVED requirements. It will search for affected test scripts and flag them for review.
 
 - ADDED N requirement(s): <titles>
 - MODIFIED N requirement(s): <titles>
