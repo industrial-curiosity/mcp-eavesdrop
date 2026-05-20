@@ -3,6 +3,7 @@
 ## Skill files
 
 When asked to update, edit, or create skills in this repo, always use `.agents/skills/<skill-name>/SKILL.md`.
+This includes any request framed as a "/opsx-*" command — those are implemented as skills, not prompt or command files.
 
 ### Skill format
 
