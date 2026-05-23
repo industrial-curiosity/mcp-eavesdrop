@@ -26,10 +26,7 @@ import { McpToolEvent } from '../types';
 
 const HOME = os.homedir();
 const MYAI_DIR = path.join(HOME, '.myai');
-export const DAEMON_SOCKET_PATH =
-  process.platform === 'win32'
-    ? '\\\\.\\pipe\\myai-extension'
-    : path.join(MYAI_DIR, 'ipc.sock');
+import { DAEMON_SOCKET_PATH } from './constants';
 
 const DAEMON_JSON_PATH = path.join(MYAI_DIR, 'daemon.json');
 const LOGS_DIR = path.join(MYAI_DIR, 'logs');
@@ -250,6 +247,14 @@ function createUnixServer(): http.Server {
       const connections = registry.getAll();
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ total: connections.length, connections }));
+      return;
+    }
+
+    // GET /debug/streams — returns active SSE stream instanceIds (development aid)
+    if (req.method === 'GET' && url.pathname === '/debug/streams') {
+      const streamIds = [...sseStreams.keys()];
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ total: streamIds.length, streamIds }));
       return;
     }
 

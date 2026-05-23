@@ -67,6 +67,27 @@ export function resolveRootKey(ide: IdeKind): McpRootKey {
   return ide === 'cursor' ? 'mcpServers' : 'servers';
 }
 
+/** Workspace MCP file paths to check, in IDE-preferred order (may not exist). */
+export function resolveWorkspaceMcpConfigCandidates(
+  ide: IdeKind,
+  workspaceFolder: string,
+): string[] {
+  const cursorPath = path.join(workspaceFolder, '.cursor', 'mcp.json');
+  const vscodePath = path.join(workspaceFolder, '.vscode', 'mcp.json');
+  return ide === 'cursor' ? [cursorPath, vscodePath] : [vscodePath, cursorPath];
+}
+
+/** User-level plus existing workspace MCP config paths for the active IDE. */
+export function listMcpConfigPaths(ide: IdeKind, workspaceFolder?: string): string[] {
+  const paths = [resolveUserMcpConfigPath(ide)];
+  if (workspaceFolder) {
+    for (const candidate of resolveWorkspaceMcpConfigCandidates(ide, workspaceFolder)) {
+      paths.push(candidate);
+    }
+  }
+  return [...new Set(paths)];
+}
+
 export function resolveUserMcpConfigForCurrentIde(): {
   configPath: string;
   ideConfig: IdeConfig;

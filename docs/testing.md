@@ -58,9 +58,13 @@ vsce --version
 
 2. Confirm `.vscode/launch.json` exists in the repo root. It should already be present; if not, create it with the `extensionHost` launch configuration (see the file committed alongside this guide).
 
-3. Press **F5** (or **Run → Start Debugging**). The debug picker may appear — select **Run Extension**. A new VS Code window labeled **[Extension Development Host]** opens.
+3. Press **F5** (or **Run → Start Debugging**). The debug picker may appear — select **Run Extension**. A new window labeled **[Extension Development Host]** opens as an empty window (no workspace folder).
 
    > **If VS Code asks "You don't have an extension for debugging Markdown"** it means the launch configuration is missing or no debug configuration was selected. Make sure `.vscode/launch.json` exists and retry.
+
+   > **Opening a workspace in the EDH**: the launch config does not open a folder automatically. If a test step requires workspace context (MCP config paths, `File → Open Folder…` test scenarios), open a folder manually once the EDH window is open: **File → Open Folder…** → select this repo or any test folder.
+
+   > **Cursor**: Use the same **Run Extension** launch config. If you see `NoWorkspaceUriError` in the debug console, open a folder in the EDH window (**File → Open Folder…** → this repo).
 
 3. In the Extension Development Host window, open the **Output** panel (`View → Output`) and select **MyAI** from the channel dropdown.
 
@@ -147,7 +151,7 @@ After the script completes, look at the **AI Agent Monitor** panel in the Extens
 
 ### 3e. Test the proxy config helper
 
-1. Create a `.vscode/mcp.json` in any workspace folder open in the Extension Development Host:
+1. Open a workspace folder in the Extension Development Host if one is not already open (**File → Open Folder…** → this repo). Then create a `.vscode/mcp.json` in that folder:
 
    ```json
    {

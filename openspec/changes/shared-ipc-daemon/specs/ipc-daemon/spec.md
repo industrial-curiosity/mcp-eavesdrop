@@ -159,6 +159,30 @@ If the daemon's heartbeat polling cycle completes and the connection registry is
 - **AND** no new `/register` call arrives within 10 seconds
 - **THEN** the daemon SHALL call `process.exit(0)`
 
+---
+
+### Requirement: Daemon exposes a debug streams endpoint
+The daemon SHALL expose `GET /debug/streams` on its Unix socket HTTP server, returning the identifiers of all currently open SSE streams.
+
+#### Scenario: Query active streams
+- **WHEN** `GET /debug/streams` is called
+- **THEN** the daemon SHALL respond `200 { "total": <n>, "streamIds": [ "<instanceId>", ... ] }`
+- **THEN** the response SHALL reflect only streams that are currently open (not evicted or disconnected)
+
+---
+
+### Requirement: Daemon constants are isolated in a side-effect-free module
+The `DAEMON_SOCKET_PATH` constant and any other value shared between the daemon process and the extension host SHALL be defined in `src/daemon/constants.ts`. This module SHALL contain no module-level side effects — no server startup, no `process.exit` calls, no global state initialization.
+
+#### Scenario: Extension imports daemon socket path
+- **WHEN** any extension-side module needs `DAEMON_SOCKET_PATH`
+- **THEN** it SHALL import from `./daemon/constants`, not from `./daemon/index`
+- **THEN** `dist/extension.js` SHALL NOT contain any daemon startup code when built
+
+#### Scenario: Daemon entry point imports its own constants
+- **WHEN** `src/daemon/index.ts` imports from `./constants`
+- **THEN** the constants module SHALL remain free of side effects in both build contexts
+
 #### Scenario: New connection arrives during grace period
 - **WHEN** a `/register` call arrives within the 10-second grace period
 - **THEN** the daemon SHALL cancel the shutdown and continue running

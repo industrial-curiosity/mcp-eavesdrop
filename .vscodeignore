@@ -17,3 +17,4 @@ scripts/**
 .agents/**
 .cursor/**
 .gitignore
+troubleshooting/**

@@ -149,3 +149,18 @@ On `deactivate()`, the extension SHALL POST to `/deregister`, query the active c
 #### Scenario: Daemon unreachable at deactivation
 - **WHEN** the daemon socket is not reachable during `deactivate()`
 - **THEN** the extension SHALL log the condition and exit without error
+
+---
+
+### Requirement: Extension imports daemon constants from a dedicated side-effect-free module
+The extension (and all modules bundled into `dist/extension.js`) SHALL import `DAEMON_SOCKET_PATH` and any other daemon-shared constants exclusively from `src/daemon/constants.ts`. No extension-side module SHALL import from `src/daemon/index.ts`.
+
+#### Scenario: Extension build contains no daemon startup code
+- **WHEN** `dist/extension.js` is built from `src/extension.ts`
+- **THEN** the bundle SHALL NOT contain module-level daemon startup code (e.g. `main()` invocation, socket binding, `process.exit`)
+- **THEN** importing `dist/extension.js` SHALL have no side effects beyond variable and function declarations
+
+#### Scenario: Extension Development Host remains stable on load
+- **WHEN** VS Code loads `dist/extension.js` in the Extension Development Host
+- **THEN** no `process.exit()` call SHALL execute before `activate()` is invoked
+- **THEN** the extension host process SHALL remain alive until VS Code terminates it

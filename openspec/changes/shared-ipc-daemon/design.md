@@ -166,7 +166,17 @@ The forced restart path (`[Restart Daemon]`) calls `POST /shutdown { force: true
 3. No database migration; logs start fresh in `~/.myai/logs/`. Existing in-memory session history is not migrated.
 4. Rollback: revert the extension package; the wrapper entries in mcp.json are restored by lifecycle.ts on uninstall/reinstall
 
+---
+
+### 11. Side-effect-free constants module
+
+**Decision:** All constants shared between the daemon process and the extension host (currently: `DAEMON_SOCKET_PATH`) SHALL be defined in `src/daemon/constants.ts`. This module exports only computed values; it has no module-level server startup, no `process.exit`, and no global state.
+
+**Rationale:** esbuild bundles all transitively imported modules into a single output file. If `extension.ts` imported `DAEMON_SOCKET_PATH` from `daemon/index.ts`, the bundler would include `daemon/index.ts` in its entirety — including the `main().catch(() => process.exit(1))` invocation at module level. This causes the extension host to call `process.exit(1)` during module evaluation, crashing the process before `activate()` is called.
+
+**Rule:** Any future constant or utility shared between the daemon and the extension MUST be placed in `src/daemon/constants.ts` or a dedicated side-effect-free module — never in `daemon/index.ts`.
+
 ## Open Questions
 
 - Should `~/.myai/logs/` files be capped (e.g. 10 MB per file) or rotated? Deferred to a follow-up change.
-- Should the daemon expose a health/version endpoint for diagnostics? Likely yes, add to `/connections` response.
+- ~~Should the daemon expose a health/version endpoint for diagnostics?~~ Addressed: `GET /debug/streams` added for SSE stream introspection; `/connections` already returns full registry state.

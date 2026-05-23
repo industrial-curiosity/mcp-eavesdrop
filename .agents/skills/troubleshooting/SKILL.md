@@ -11,6 +11,16 @@ This skill maintains a structured troubleshooting log so that no attempt is repe
 
 Before trying anything, read the log. After trying anything, write to the log. A repeated attempt is a bug in your process.
 
+## Fix problems; do not hide them
+
+When the user encounters warnings, errors, or unwanted debug-console output:
+
+- **Fix the root cause** (wrong config path, missing workspace folder, broken SSE connection, IDE-specific MCP file, race on startup, etc.).
+- **Do not suppress** legitimate application logging (daemon startup lines, wrapper errors, extension `Output` channel messages).
+- **Do not treat IDE noise as solved** by hiding it: `NODE_OPTIONS=--no-deprecation`, quiet flags, disabling indexing, or "ignore Cursor internals" without confirming the user's **actual feature** works (e.g. live panel updates, not just absence of red text).
+- **Separate signal from noise in investigation**, not in product behavior: Cursor may log `NoWorkspaceUriError` while investigating, but the fix is ensuring workspace URI + correct `.cursor/mcp.json` / wrapped MCP — not telling the user to ignore errors.
+- If something truly cannot be fixed in this repo (a Cursor host bug), say so explicitly, link the symptom to the upstream owner, and still fix anything in-repo that contributes (wrong path, unwrapped workspace MCP, dev host launched without a folder).
+
 ## Log Location
 
 Each troubleshooting session gets its own file inside a `troubleshooting/` folder at the root of the workspace (or nearest relevant directory if the issue is scoped to a subfolder).
@@ -49,21 +59,30 @@ Scan the current session file's existing entries:
 
 ### 3. Log Each Attempt
 
+**An "attempt" includes any of the following — not just code changes or commands:**
+- Reading source code to evaluate whether a hypothesis holds
+- Inspecting a data structure, Map, or registry to rule out a collision or eviction scenario
+- Running a diagnostic command (`curl`, `cat`, `ps`, etc.) to observe live state
+- Creating or running a test script to confirm or deny behavior
+- Reasoning through control flow to eliminate a possible root cause
+
+Every hypothesis that is **formed and evaluated** must be logged — even if the evaluation is "I read the code and it's fine." Unlogged hypotheses create invisible pivots and make it impossible to know what has already been ruled out.
+
 Append a new entry immediately after completing (or abandoning) each attempt, using this exact template:
 
 ```markdown
 ## Attempt [N] — [short label]
 
 **Hypothesis**: [What you believed was causing the issue, and why]
-**What was tried**: [Specific actions taken — commands run, files changed, configs modified]
-**Result**: [What actually happened — output, error messages, behavior observed]
+**What was tried**: [Specific actions taken — commands run, files read, code inspected, scripts created/run]
+**Result**: [What actually happened — output, error messages, code behavior observed, or reasoning conclusion]
 **Why it was wrong** *(if failed)*: [What the result reveals about the real cause — what assumption was incorrect]
 **Status**: [❌ Failed | ✅ Resolved | ⚠️ Partial — [explain]]
 
 ---
 ```
 
-Keep each field concise but specific. Vague entries like "tried restarting" are useless — include the exact command, flag, or change made.
+Keep each field concise but specific. Vague entries like "tried restarting" are useless — include the exact command, flag, file read, or reasoning step taken.
 
 ### 4. Forming the Next Hypothesis
 
@@ -85,12 +104,36 @@ When the issue is resolved, append a final summary entry:
 ---
 ```
 
+Then **archive the session file** by moving it to `troubleshooting/archive/`:
+
+```bash
+mkdir -p troubleshooting/archive
+mv troubleshooting/<filename>.md troubleshooting/archive/
+```
+
+Archive when:
+- The root cause is confirmed and a fix is applied (✅ all open items resolved)
+- The investigation is explicitly closed by the user ("mark this done", "finalize", "archive this")
+- A partial investigation is intentionally paused and a new doc will be opened for the next phase
+
+Do **not** archive if there are still open ⚠️ Partial entries that require a follow-up action to confirm the fix.
+
+**Before archiving, update related documentation.** Any docs, guides, or specs that describe the behavior that was broken or the configuration that was changed should be updated to reflect the resolved state. Look in:
+- `docs/` for testing guides, setup instructions, or runbooks that reference the affected component
+- `openspec/` specs if the investigation revealed a spec was wrong or incomplete
+- `README.md` if the fix changes setup, usage, or known limitations
+
+Do not archive until the docs accurately describe the current working state.
+
 ## Anti-patterns to Avoid
 
 - **Looping**: Trying the same thing twice because you forgot you already tried it
 - **Undocumented pivots**: Changing direction without logging why the previous attempt failed
 - **Hypothesis-free attempts**: Trying things without stating what you expect to learn
 - **Partial entries**: Logging "tried X" without recording what happened when you tried X
+- **Unlogged inspection**: Reading code, reviewing a data structure, or doing mental reasoning that rules out a hypothesis — without recording it. This is the most common gap: if you read a file and concluded the bug isn't there, write it down.
+- **Suppression as solution**: Quieting logs, deprecations, or stderr instead of fixing why they appear; removing `myai-daemon:` lines the user relies on
+- **Console-only validation**: Declaring success because the debug console looks cleaner while the feature (panel live events, MCP wrap, etc.) still fails in the target IDE
 
 ## Example Entry
 

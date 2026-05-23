@@ -5,6 +5,7 @@
 - [x] 1.3 Implement `~/.myai/ipc.sock` binding with `0600` permissions, stale socket cleanup, and Windows named pipe fallback
 - [x] 1.4 Add bootstrap lock logic in `src/extension.ts`: probe socket → acquire `~/.myai/ipc.lock` → spawn detached daemon → poll socket → release lock
 - [x] 1.5 Handle stale lock detection (age > 10s with no connectable socket → delete and retry)
+- [x] 1.6 Create `src/daemon/constants.ts` as a side-effect-free module exporting only `DAEMON_SOCKET_PATH`; update `extension.ts`, `wrapper-deploy.ts`, and `daemon/index.ts` to import from this module instead of `daemon/index.ts`
 
 ## 2. Daemon Connection Registry
 
@@ -23,6 +24,7 @@
 - [x] 3.4 Implement `POST /telemetry` endpoint: validate body (`id`, `type`, `timestamp`, `ide`, `workspaceSlug`), persist, broadcast
 - [x] 3.5 Implement `GET /connections` endpoint: return `{ total, connections: [...] }`
 - [x] 3.6 Implement `POST /shutdown` endpoint: validate connection count (reject if > 1 unless `force: true`), flush, exit
+- [x] 3.7 Implement `GET /debug/streams` endpoint: return `{ total, streamIds }` reflecting currently open SSE streams
 
 ## 4. Daemon HTTP MCP Proxy
 
@@ -73,7 +75,7 @@
 - [x] 10.3 Add `scripts/test-reconnect.mjs`: kill daemon mid-session, verify extension reconnect loop replays startup and panel reconnects
 - [x] 10.4 Update `scripts/test-wrapper.mjs` to test HTTP bridge mode and `daemon.json` fallback path
 - [x] 10.5 Update `scripts/test-mcp-wrap.mjs`: remove stale `ipcSocket`/`proxyPort` fixture fields (no longer in `WrapOptions`); add `ide` and `workspaceSlug`; remove `MYAI_IPC_SOCKET` env assertion (socket path is now embedded in wrapper, not set as env var)
-- [ ] 10.6 Manually verify end-to-end with VS Code + Cursor open simultaneously: both panels show events from both windows
+- [x] 10.6 Manually verify end-to-end with VS Code + Cursor open simultaneously: both panels show events from both windows
 
 ## 11. Cleanup and Documentation
 
@@ -82,3 +84,4 @@
 - [x] 11.3 Update `build.mjs` to output `dist/daemon/index.js`
 - [x] 11.4 Update `README.md`: document `~/.myai/` directory structure, multi-IDE support, and manual daemon restart procedure
 - [x] 11.5 Add `~/.myai/` to `.gitignore` if not already present
+- [x] 11.6 Verify `dist/extension.js` contains no daemon startup code (`grep main.catch dist/extension.js` returns 0 matches)

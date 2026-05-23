@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { DAEMON_SOCKET_PATH } from './daemon/index';
+import { DAEMON_SOCKET_PATH } from './daemon/constants';
 
 export interface DeployResult {
   deployedPath: string;

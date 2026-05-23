@@ -7,10 +7,10 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import * as cp from 'child_process';
 import { AgentPanel } from './panel/AgentPanel';
-import { registerMonitoringCommands } from './monitoring-commands';
+import { logMcpConfigDiagnostics, registerMonitoringCommands } from './monitoring-commands';
 import { checkForStaleWrappers } from './stale-check';
 import { detectIde, resolveUserMcpConfigPath } from './mcp-config';
-import { DAEMON_SOCKET_PATH } from './daemon/index';
+import { DAEMON_SOCKET_PATH } from './daemon/constants';
 import { deployWrapper } from './wrapper-deploy';
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,18 @@ const LOCK_STALE_AGE_MS = 10_000;
 // Module-level state
 // ---------------------------------------------------------------------------
 
-let outputChannel: vscode.OutputChannel;
+let outputChannel: vscode.OutputChannel | undefined;
+
+/** Avoid "Channel has been closed" races when the debug session ends mid-activate (common in Cursor). */
+function myaiLog(message: string): void {
+  const channel = outputChannel;
+  if (!channel) return;
+  try {
+    channel.appendLine(message);
+  } catch {
+    // Output channel disposed during extension host reload.
+  }
+}
 let instanceId: string;
 let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -139,31 +150,31 @@ async function spawnDaemon(context: vscode.ExtensionContext): Promise<void> {
   const daemonPath = context.asAbsolutePath(path.join('dist', 'daemon', 'index.js'));
   const child = cp.spawn('node', [daemonPath], { detached: true, stdio: 'ignore' });
   child.unref();
-  outputChannel.appendLine(`MyAI: spawned daemon (pid ${child.pid})`);
+  myaiLog(`MyAI: spawned daemon (pid ${child.pid})`);
 }
 
 async function connectToDaemon(context: vscode.ExtensionContext): Promise<boolean> {
   const reachable = await probeSocket(DAEMON_SOCKET_PATH);
   if (reachable) {
-    outputChannel.appendLine('MyAI: daemon already running');
+    myaiLog('MyAI: daemon already running');
     return true;
   }
 
   const locked = await acquireLock();
   if (!locked) {
     if (checkLockStale()) {
-      outputChannel.appendLine('MyAI: stale lock detected, removing and retrying');
+      myaiLog('MyAI: stale lock detected, removing and retrying');
       try { fs.unlinkSync(LOCK_PATH); } catch { /* ignore */ }
       return connectToDaemon(context);
     }
-    outputChannel.appendLine('MyAI: waiting for another instance to start daemon');
+    myaiLog('MyAI: waiting for another instance to start daemon');
     return pollSocketReady(DAEMON_SOCKET_PATH, SOCKET_POLL_TIMEOUT_MS);
   }
 
   try {
     await spawnDaemon(context);
     const ready = await pollSocketReady(DAEMON_SOCKET_PATH, SOCKET_POLL_TIMEOUT_MS);
-    if (!ready) outputChannel.appendLine('MyAI: daemon failed to start within timeout');
+    if (!ready) myaiLog('MyAI: daemon failed to start within timeout');
     return ready;
   } finally {
     try { fs.unlinkSync(LOCK_PATH); } catch { /* ignore */ }
@@ -191,6 +202,26 @@ function startDaemonMonitor(): void {
       const daemonReq = http.request(
         { socketPath: DAEMON_SOCKET_PATH, path: `/events?instanceId=${encodeURIComponent(instanceId)}`, method: 'GET' },
         (daemonRes) => {
+          const status = daemonRes.statusCode ?? 0;
+          if (status !== 200) {
+            const chunks: Buffer[] = [];
+            daemonRes.on('data', (c: Buffer) => chunks.push(c));
+            daemonRes.on('end', () => {
+              const body = Buffer.concat(chunks).toString('utf8');
+              const details = body ? `: ${body}` : '';
+              myaiLog(`MyAI: daemon SSE subscribe rejected (${status})${details}`);
+              daemonConnected = false;
+              AgentPanel.postMessage({ type: 'status', connected: false });
+              scheduleReconnect();
+            });
+            daemonRes.on('error', () => {
+              daemonConnected = false;
+              AgentPanel.postMessage({ type: 'status', connected: false });
+              scheduleReconnect();
+            });
+            return;
+          }
+
           reconnectFailureCount = 0;
           daemonConnected = true;
           AgentPanel.postMessage({ type: 'status', connected: true });
@@ -214,7 +245,7 @@ function startDaemonMonitor(): void {
             }
           });
           daemonRes.on('end', () => {
-            outputChannel.appendLine('MyAI: daemon SSE stream ended, scheduling reconnect');
+            myaiLog('MyAI: daemon SSE stream ended, scheduling reconnect');
             daemonConnected = false;
             AgentPanel.postMessage({ type: 'status', connected: false });
             scheduleReconnect();
@@ -242,6 +273,8 @@ function startDaemonMonitor(): void {
       reconnectTimer = setTimeout(async () => {
         const socketOk = await probeSocket(DAEMON_SOCKET_PATH).catch(() => false);
         if (socketOk) {
+          // Socket may be up after daemon restart while this instance is no longer registered.
+          await registerInstanceWithDaemon();
           subscribeToDaemon();
           return;
         }
@@ -251,14 +284,14 @@ function startDaemonMonitor(): void {
         const daemonDead = !daemonInfo || !isDaemonProcessAlive(daemonInfo.pid);
 
         if (daemonDead && extensionContext) {
-          outputChannel.appendLine('MyAI: daemon appears dead, replaying full startup sequence...');
+          myaiLog('MyAI: daemon appears dead, replaying full startup sequence...');
           const reconnected = await connectToDaemon(extensionContext);
           if (reconnected) {
             reconnectFailureCount = 0;
             const newInfo = readDaemonJson();
             // 5.2: Re-deploy wrapper if port changed after daemon restart
             if (newInfo?.proxyPort !== undefined && newInfo.proxyPort !== daemonProxyPort) {
-              outputChannel.appendLine(`MyAI: daemon port changed ${daemonProxyPort} → ${newInfo.proxyPort}, re-deploying wrapper`);
+              myaiLog(`MyAI: daemon port changed ${daemonProxyPort} → ${newInfo.proxyPort}, re-deploying wrapper`);
               daemonProxyPort = newInfo.proxyPort;
               deployWrapper(extensionContext, daemonProxyPort);
               if (AgentPanel.currentPanel) {
@@ -308,6 +341,47 @@ function stopHeartbeat(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Workspace identity (Extension Development Host may start with no folder)
+// ---------------------------------------------------------------------------
+
+function normalizeWorkspaceSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+}
+
+function resolveWorkspaceIdentity(context: vscode.ExtensionContext): { name: string; slug: string } {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  if (folder) {
+    return {
+      name: folder.name,
+      slug: normalizeWorkspaceSlug(path.basename(folder.uri.fsPath)),
+    };
+  }
+
+  const devRoot = context.extensionUri.fsPath;
+  const name = path.basename(devRoot);
+  return { name, slug: normalizeWorkspaceSlug(name) };
+}
+
+async function registerInstanceWithDaemon(): Promise<void> {
+  try {
+    await postDaemon(DAEMON_SOCKET_PATH, '/register', {
+      instanceId,
+      ide: ideConfig.ide,
+      workspace: registeredWorkspaceName,
+      workspaceSlug: registeredWorkspaceSlug,
+    });
+  } catch (err) {
+    myaiLog(`MyAI: failed to register with daemon: ${err}`);
+  }
+}
+
+function applyWorkspaceIdentity(context: vscode.ExtensionContext): void {
+  const { name, slug } = resolveWorkspaceIdentity(context);
+  registeredWorkspaceName = name;
+  registeredWorkspaceSlug = slug;
+}
+
+// ---------------------------------------------------------------------------
 // Activation
 // ---------------------------------------------------------------------------
 
@@ -319,7 +393,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   ideConfig = detectIde();
 
   if (ideConfig.appName !== 'Visual Studio Code' && ideConfig.appName !== 'Cursor') {
-    outputChannel.appendLine(`MyAI: unknown IDE appName "${ideConfig.appName}", defaulting to VS Code conventions.`);
+    myaiLog(`MyAI: unknown IDE appName "${ideConfig.appName}", defaulting to VS Code conventions.`);
   }
 
   extensionContext = context;
@@ -332,24 +406,39 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const daemonInfo = readDaemonJson();
   daemonProxyPort = daemonInfo?.proxyPort;
-  outputChannel.appendLine(`MyAI: daemon proxy port ${daemonProxyPort ?? 'unknown'}`);
+  myaiLog(`MyAI: daemon proxy port ${daemonProxyPort ?? 'unknown'}`);
 
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  const workspaceSlug = workspaceFolders?.[0]
-    ? path.basename(workspaceFolders[0].uri.fsPath).toLowerCase().replace(/[^a-z0-9-]/g, '-')
-    : 'default';
-  const workspaceName = workspaceFolders?.[0]?.name ?? 'default';
-  registeredWorkspaceSlug = workspaceSlug;
-  registeredWorkspaceName = workspaceName;
-
-  try {
-    await postDaemon(DAEMON_SOCKET_PATH, '/register', { instanceId, ide: ideConfig.ide, workspace: workspaceName, workspaceSlug });
-  } catch (err) {
-    outputChannel.appendLine(`MyAI: failed to register with daemon: ${err}`);
+  applyWorkspaceIdentity(context);
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  myaiLog(
+    `MyAI: activated in ${ideConfig.appName} (ide=${ideConfig.ide}, workspaceFolders=${vscode.workspace.workspaceFolders?.length ?? 0}${folder ? `, path=${folder.uri.fsPath}` : ''})`,
+  );
+  if (!folder) {
+    myaiLog(
+      `MyAI: no workspace folder open; using "${registeredWorkspaceName}" for workspace identity — open this repo in the Extension Development Host if Cursor shows NoWorkspaceUriError`,
+    );
   }
 
+  await registerInstanceWithDaemon();
+
+  logMcpConfigDiagnostics(
+    ideConfig.ide,
+    myaiLog,
+    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      const prevSlug = registeredWorkspaceSlug;
+      applyWorkspaceIdentity(context);
+      if (registeredWorkspaceSlug === prevSlug) return;
+      myaiLog(`MyAI: workspace changed → ${registeredWorkspaceName} (${registeredWorkspaceSlug})`);
+      void registerInstanceWithDaemon();
+    }),
+  );
+
   startDaemonMonitor();
-  outputChannel.appendLine('MyAI: daemon monitor started');
+  myaiLog('MyAI: daemon monitor started');
 
   AgentPanel.onPanelReady = () => {
     AgentPanel.postMessage({ type: 'status', connected: daemonConnected });
@@ -384,7 +473,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     try {
       await fetch(`http://127.0.0.1:${daemonProxyPort}/internal/clear`, { method: 'POST' });
     } catch (err) {
-      outputChannel.appendLine(`clearSession failed: ${err}`);
+      myaiLog(`clearSession failed: ${err}`);
     }
   });
 
@@ -393,14 +482,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       vscode.window.showErrorMessage('MyAI: Daemon is not running yet. Please wait a moment and try again.');
       return;
     }
-    showProxyConfigSnippet(daemonProxyPort, outputChannel);
+    if (outputChannel) showProxyConfigSnippet(daemonProxyPort, outputChannel);
   });
 
   context.subscriptions.push(openPanelCmd, clearSessionCmd, showConfigCmd);
 
   registerMonitoringCommands(context, {
     ide: ideConfig.ide,
-    workspaceSlug,
+    workspaceSlugProvider: () => registeredWorkspaceSlug,
     daemonProxyPortProvider: () => daemonProxyPort,
   });
 
@@ -499,7 +588,8 @@ function showProxyConfigSnippet(port: number, channel: vscode.OutputChannel): vo
   channel.appendLine(`// Stdio server(s): ${stdioServers.length}`);
   channel.appendLine('');
   if (Object.keys(mcpServers).length > 0) {
-    const snippet = JSON.stringify({ servers: proxied }, null, 2);
+    const rootKey = detectIde().rootKey;
+    const snippet = JSON.stringify({ [rootKey]: proxied }, null, 2);
     channel.appendLine('// HTTP proxy snippet:');
     channel.appendLine('');
     channel.appendLine(snippet);
