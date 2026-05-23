@@ -113,3 +113,21 @@ Developers building or debugging AI agent workflows who want operational visibil
 This repository ships OpenSpec workflow prompts and skills for both GitHub Copilot and Cursor.
 
 - **Skills** live in `.agents/skills/` — the [Agent Skills](https://agentskills.io/specification) cross-client convention, scanned directly by compatible clients.
+
+### Skill Quality Analysis on Save
+
+The [Chat Customizations Evaluations](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-chat-customizations-evaluations) extension analyzes skill files for issues (ambiguous activation conditions, persona conflicts, missing inline summaries, etc.). To trigger analysis automatically on every save of a `SKILL.md` file, add this to your `keybindings.json` (`Cmd+Shift+P` → "Preferences: Open Keyboard Shortcuts (JSON)"):
+
+```json
+{
+    "key": "cmd+s",
+    "command": "runCommands",
+    "args": {
+        "commands": [
+            "workbench.action.files.save",
+            "chatCustomizationsEvaluations.analyzePrompt"
+        ]
+    },
+    "when": "editorTextFocus && resourceFilename == 'SKILL.md'"
+}
+```

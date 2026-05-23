@@ -134,27 +134,6 @@ Input: Added user authentication with JWT tokens
 Output: feat(auth): implement JWT-based authentication
 ```
 
-### Common Skill Quality Pitfalls
-
-Before finalizing a skill draft, check for these four patterns — each creates ambiguity that degrades skill reliability:
-
-**1. Inconsistent file scope**
-The `description` and the body's file-scope statement must agree. If the description says `.ts, .js, .mjs` but the body says `src/**/*.ts, scripts/**/*.mjs`, the model doesn't know which wins. Fix: use explicit glob patterns in both and keep them identical. If `.js` files outside the listed paths are out of scope, say so explicitly (`Do not activate for .js files outside these paths`).
-
-**2. Persona conflict (passive vs active)**
-A skill that says "consult this reference" in its body but "activate automatically" in its description creates a role mismatch. Pick one:
-- *Active*: description triggers auto-loading; body uses imperative instructions ("Apply these rules when…", "Run `get_errors` on every modified file").
-- *Passive*: description says "Load this skill when asked"; body uses present-tense reference language ("The format is…", "The convention is…").
-`quality-lessons-*` skills should be *active* — they auto-load and their rules are applied imperatively.
-
-**3. External file references without inline fallback**
-Don't write "see `other-skill/SKILL.md` for details" for critical rules without also providing a brief inline summary. If the referenced file isn't loaded, the model guesses. Always include the key facts inline, e.g.: *"Scripts must start with `#!/usr/bin/env node` and use `process.exit(0/1)`. Full details in `script-writing/SKILL.md`."*
-
-**4. Overlapping rules with no tiebreaker**
-When a skill has two or more rules that could apply to the same piece of code (e.g., "daemon code → logger.error", "extension code → showErrorMessage"), always add an explicit tiebreaker for the overlap case: *"For code shared between both contexts, use logger.error — the extension layer surfaces it via showErrorMessage. Never use console.error."*
-
----
-
 ### Writing Style
 
 Try to explain to the model why things are important in lieu of heavy-handed musty MUSTs. Use theory of mind and try to make the skill general and not super-narrow to specific examples. Start by writing a draft and then look at it with fresh eyes and improve it.

@@ -32,3 +32,10 @@ Include a summary of any related-skill changes in the review draft.
 ## Review before writing
 
 Always show the full draft (new skill + any related-skill changes) and get confirmation before writing anything. Revise if needed.
+
+Before presenting the draft, self-check for the four common skill quality pitfalls (defined in `skill-creator` under "Common Skill Quality Pitfalls"):
+
+1. **Inconsistent file scope** — does the description's activation scope exactly match the body's file-scope statement? If not, align them and make out-of-scope exclusions explicit.
+2. **Persona conflict** — does the description say "activate automatically" while the body says "consult this reference"? Pick one mode (active or passive) and apply it consistently throughout.
+3. **External references without inline fallback** — if the draft points to another skill or file for critical rules, does it also summarize those rules inline? Add a one-line inline summary for any critical rule sourced from an external file.
+4. **Overlapping rules with no tiebreaker** — if two rules in the draft could apply to the same code (e.g., different routing logic for shared vs. context-specific code), add an explicit tiebreaker rule.
