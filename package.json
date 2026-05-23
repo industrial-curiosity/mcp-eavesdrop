@@ -12,8 +12,12 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -44,11 +48,12 @@
     "watch": "node build.mjs --watch",
     "vscode:prepublish": "node build.mjs",
     "vscode:uninstall": "node ./dist/lifecycle.js",
-    "package": "vsce package"
+    "package": "vsce package",
+    "sync-skills": "node scripts/sync-skills.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
-    "ws": "^8.18.2"
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

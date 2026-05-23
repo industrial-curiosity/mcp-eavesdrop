@@ -58,9 +58,13 @@ vsce --version
 
 2. Confirm `.vscode/launch.json` exists in the repo root. It should already be present; if not, create it with the `extensionHost` launch configuration (see the file committed alongside this guide).
 
-3. Press **F5** (or **Run → Start Debugging**). The debug picker may appear — select **Run Extension**. A new VS Code window labeled **[Extension Development Host]** opens.
+3. Press **F5** (or **Run → Start Debugging**). The debug picker may appear — select **Run Extension**. A new window labeled **[Extension Development Host]** opens as an empty window (no workspace folder).
 
    > **If VS Code asks "You don't have an extension for debugging Markdown"** it means the launch configuration is missing or no debug configuration was selected. Make sure `.vscode/launch.json` exists and retry.
+
+   > **Opening a workspace in the EDH**: the launch config does not open a folder automatically. If a test step requires workspace context (MCP config paths, `File → Open Folder…` test scenarios), open a folder manually once the EDH window is open: **File → Open Folder…** → select this repo or any test folder.
+
+   > **Cursor**: Use the same **Run Extension** launch config. If you see `NoWorkspaceUriError` in the debug console, open a folder in the EDH window (**File → Open Folder…** → this repo).
 
 3. In the Extension Development Host window, open the **Output** panel (`View → Output`) and select **MyAI** from the channel dropdown.
 
@@ -147,7 +151,7 @@ After the script completes, look at the **AI Agent Monitor** panel in the Extens
 
 ### 3e. Test the proxy config helper
 
-1. Create a `.vscode/mcp.json` in any workspace folder open in the Extension Development Host:
+1. Open a workspace folder in the Extension Development Host if one is not already open (**File → Open Folder…** → this repo). Then create a `.vscode/mcp.json` in that folder:
 
    ```json
    {
@@ -163,11 +167,141 @@ After the script completes, look at the **AI Agent Monitor** panel in the Extens
 
 ---
 
+---
+
+## Unit / integration test scripts
+
+These scripts are standalone Node.js programs that can be run without the Extension Development Host. All require `npm run build` first.
+
+---
+
+### `test-mcp-config.mjs` — MCP config path resolution
+
+Verifies that `resolveUserMcpConfigPath` returns the correct platform-specific path for VS Code and Cursor on macOS, Linux, and Windows, and that `detectIde` returns the right root key.
+
+```bash
+node scripts/test-mcp-config.mjs
+```
+
+Expected output: `PASS test-mcp-config`
+
+---
+
+### `test-mcp-wrap.mjs` — Entry wrapping / unwrapping
+
+Tests `wrapEntry` and `unwrapEntry` for both stdio and HTTP MCP server entries. Verifies that wrapping injects the correct `MYAI_IPC_SOCKET` / `MYAI_REAL_SERVER` env vars for stdio entries and rewrites the URL for HTTP entries, and that unwrapping restores the originals exactly.
+
+```bash
+node scripts/test-mcp-wrap.mjs
+```
+
+Expected output: `PASS test-mcp-wrap`
+
+---
+
+### `test-stale-check.mjs` — Stale wrapper detection
+
+Creates a temporary MCP config with one healthy server (wrapper file exists) and one stale server (wrapper file missing), then asserts that `checkForStaleWrappers` returns only the stale entry.
+
+```bash
+node scripts/test-stale-check.mjs
+```
+
+Expected output: `PASS test-stale-check`
+
+---
+
+### `test-wrapper-deploy.mjs` — Wrapper deployment and versioning
+
+Creates a temporary directory structure and calls `deployWrapper` three times: first deploy (should copy), second deploy at same version (should skip), third deploy after a version bump (should redeploy). Asserts the correct `deployed` flag and version on each call.
+
+```bash
+node scripts/test-wrapper-deploy.mjs
+```
+
+Expected output: `PASS test-wrapper-deploy`
+
+---
+
+### `test-wrapper.mjs` — stdio wrapper end-to-end
+
+Starts a mock stdio MCP server and a mock telemetry HTTP server, then spawns the stdio wrapper process with `MYAI_REAL_SERVER` pointing at the mock server. Sends a `tools/call` request through stdin and asserts the wrapper forwards it and relays the response on stdout, and posts a telemetry event to the mock server.
+
+```bash
+node scripts/test-wrapper.mjs
+```
+
+Expected output: `PASS test-wrapper`
+
+---
+
+### `test-lifecycle.mjs` — Extension uninstall lifecycle
+
+Creates a fake home directory pre-populated with wrapped VS Code and Cursor MCP configs and a `.myai` directory, then runs `dist/lifecycle.js` against it. Asserts that both configs are fully unwrapped (original `command`/`args` restored) and that the `.myai` directory is removed.
+
+```bash
+node scripts/test-lifecycle.mjs
+```
+
+Expected output: `PASS test-lifecycle`
+
+---
+
+### `test-daemon.mjs` — Daemon core smoke test
+
+Starts `dist/daemon/index.js`, registers two fake extension instances, sends heartbeats, subscribes to the SSE stream for one instance, posts a `tool_call_started` telemetry event, and asserts the event arrives over SSE. Then deregisters both instances and waits for the daemon to self-terminate after the idle grace period.
+
+```bash
+node scripts/test-daemon.mjs
+```
+
+Expected output ends with `PASS test-daemon`
+
+---
+
+### `test-daemon-lifecycle.mjs` — Multi-instance daemon lifecycle
+
+Verifies the daemon's self-termination logic. Kills any existing daemon first (for test isolation), then registers two instances (A and B), deregisters A and confirms the daemon stays alive while B is connected, then deregisters B and asserts the daemon exits within 15 seconds.
+
+**Note:** This test shuts down any running daemon before starting. If VS Code is running the extension, it will automatically respawn the daemon after this test completes.
+
+```bash
+node scripts/test-daemon-lifecycle.mjs
+```
+
+Expected output ends with `All lifecycle tests passed ✓` and the daemon process exits cleanly.
+
+---
+
+### `test-daemon-proxy.mjs` — Daemon TCP MCP proxy
+
+Starts the daemon, registers an instance, subscribes to its SSE stream, spins up a mock MCP HTTP server, and routes a `tools/call` through the daemon's TCP proxy using the `x-upstream-url` header. Asserts the HTTP response is correct and that a telemetry event was broadcast over SSE.
+
+```bash
+node scripts/test-daemon-proxy.mjs
+```
+
+Expected output ends with `PASS test-daemon-proxy`
+
+---
+
+### `test-reconnect.mjs` — Daemon SSE reconnect
+
+Tests reconnect resilience: starts the daemon, registers an instance, kills the daemon with `SIGKILL`, restarts it, and verifies that a new SSE subscription can be established successfully after the restart.
+
+```bash
+node scripts/test-reconnect.mjs
+```
+
+Expected output ends with `PASS reconnect`
+
+---
+
 ## Common issues
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | "Proxy failed to start" notification | `dist/proxy/server.js` missing | Run `npm run build` and restart the Extension Development Host |
-| Panel opens but spinner never resolves | WebSocket blocked or wrong port | Check the **MyAI** output channel for the port; confirm no firewall rules block loopback |
+| Panel opens but shows "Disconnected — reconnecting…" | Extension host not connected to daemon SSE, or daemon not running | Check the **MyAI** output channel; verify daemon is running (`cat ~/.myai/daemon.json`); reload window |
 | `vsce package` fails with "Missing publisher" | `publisher` field in package.json | Set it to your VS Code Marketplace publisher ID or any placeholder for local testing |
 | `tsc --noEmit` reports errors | Type mismatch | Run `npm run build` first; esbuild is lenient but tsc is strict |

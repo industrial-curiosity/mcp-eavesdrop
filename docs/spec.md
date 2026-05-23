@@ -120,15 +120,19 @@ interface McpToolEvent {
 
 - Opens in the secondary editor column (beside the active editor)
 - Persists across editor restarts via `retainContextWhenHidden: true`
-- Connects to the proxy's WebSocket `/events` endpoint on load
-- Receives `McpToolEvent` messages and maintains a local session log
+- Fully passive: does **not** make any direct network connections (no EventSource, no WebSocket, no HTTP fetch)
+- All events are pushed from the extension host via `panel.webview.postMessage`
+
+**Architecture constraint:** VS Code webviews run in a sandboxed Electron renderer. Outbound `EventSource` and `WebSocket` connections to localhost are unreliable even with correct CSP and `portMapping`. The standard VS Code pattern is for the extension host (Node.js) to own all network I/O and push data to the webview.
 
 **Message protocol (extension host ↔ WebView):**
 
 | Direction | Message type | Payload |
 | --- | --- | --- |
-| Host → WebView | `init` | `{ proxyPort: number }` |
-| Host → WebView | `event` | `McpToolEvent` |
+| Host → WebView | `status` | `{ connected: boolean }` |
+| Host → WebView | `event` | `{ event: McpToolEvent }` |
+| Host → WebView | `connections` | `{ connections: Connection[] }` |
+| Host → WebView | `history` | `{ events: McpToolEvent[] }` |
 | WebView → Host | `clearSession` | `{}` |
 | WebView → Host | `ready` | `{}` |
 

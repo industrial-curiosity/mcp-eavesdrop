@@ -1,44 +1,43 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import * as crypto from 'crypto';
 
 export class AgentPanel {
   public static currentPanel: AgentPanel | undefined;
   public static onDidDispose: (() => void) | undefined;
+  public static onPanelReady: (() => void) | undefined;
   private static readonly viewType = 'myaiAgentMonitor';
+
+  public static postMessage(message: unknown): void {
+    AgentPanel.currentPanel?._panel.webview.postMessage(message);
+  }
 
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
-  private _proxyPort: number;
+  private _relayPort: number;
   private readonly _disposables: vscode.Disposable[] = [];
 
   // ---------------------------------------------------------------------------
   // Static factory
   // ---------------------------------------------------------------------------
 
-  /**
-   * If a panel is already open, send it an updated proxy port without
-   * revealing or disrupting it. Called whenever the proxy (re)starts.
-   */
-  public static notifyProxyPort(proxyPort: number): void {
-    if (AgentPanel.currentPanel) {
-      AgentPanel.currentPanel._proxyPort = proxyPort;
-      AgentPanel.currentPanel._panel.webview.postMessage({ type: 'init', proxyPort });
-    }
-  }
-
-  public static createOrShow(extensionUri: vscode.Uri, proxyPort: number): void {
+  public static createOrShow(extensionUri: vscode.Uri, relayPort: number): void {
     const column = vscode.window.activeTextEditor
       ? vscode.ViewColumn.Beside
       : vscode.ViewColumn.One;
 
     if (AgentPanel.currentPanel) {
-      // Panel already open — reveal it and re-send init (handles proxy restarts)
-      AgentPanel.currentPanel._panel.reveal(column);
-      AgentPanel.currentPanel._proxyPort = proxyPort;
-      AgentPanel.currentPanel._panel.webview.postMessage({ type: 'init', proxyPort });
-      return;
+      if (AgentPanel.currentPanel._relayPort !== relayPort) {
+        // Port changed — dispose and recreate so portMapping stays correct
+        AgentPanel.currentPanel._panel.dispose();
+        // currentPanel is cleared by _dispose via onDidDispose
+      } else {
+        AgentPanel.currentPanel._panel.reveal(column);
+        AgentPanel.currentPanel._panel.webview.postMessage({ type: 'init', relayPort });
+        return;
+      }
     }
 
     const panel = vscode.window.createWebviewPanel(
@@ -49,10 +48,11 @@ export class AgentPanel {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist')],
+        portMapping: [{ webviewPort: relayPort, extensionHostPort: relayPort }],
       },
     );
 
-    AgentPanel.currentPanel = new AgentPanel(panel, extensionUri, proxyPort);
+    AgentPanel.currentPanel = new AgentPanel(panel, extensionUri, relayPort);
   }
 
   // ---------------------------------------------------------------------------
@@ -62,11 +62,11 @@ export class AgentPanel {
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    proxyPort: number,
+    relayPort: number,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
-    this._proxyPort = proxyPort;
+    this._relayPort = relayPort;
 
     this._panel.title = 'AI Agent Monitor';
     this._panel.webview.html = this._buildHtml(this._panel.webview);
@@ -86,15 +86,51 @@ export class AgentPanel {
 
   private _handleMessage(message: { type: string }): void {
     switch (message.type) {
-      case 'ready':
-        // WebView has loaded — send the proxy port so it can connect
-        this._panel.webview.postMessage({ type: 'init', proxyPort: this._proxyPort });
+      case 'ready': {
+        const history = this._loadHistory();
+        if (history.length > 0) {
+          this._panel.webview.postMessage({ type: 'history', events: history });
+        }
+        AgentPanel.onPanelReady?.();
         break;
+      }
 
       case 'clearSession':
         vscode.commands.executeCommand('myai.clearSession');
         break;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // History loading
+  // ---------------------------------------------------------------------------
+
+  private _loadHistory(): unknown[] {
+    const logsDir = path.join(os.homedir(), '.myai', 'logs');
+    const events: unknown[] = [];
+    try {
+      const ideDirs = fs.readdirSync(logsDir, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => path.join(logsDir, d.name));
+      for (const ideDir of ideDirs) {
+        const logFiles = fs.readdirSync(ideDir).filter(f => f.endsWith('.jsonl'));
+        for (const logFile of logFiles) {
+          const content = fs.readFileSync(path.join(ideDir, logFile), 'utf8');
+          for (const line of content.split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try { events.push(JSON.parse(trimmed)); } catch { /* skip malformed */ }
+          }
+        }
+      }
+    } catch { /* logs dir not present yet */ }
+    // Sort by timestamp ascending
+    events.sort((a, b) => {
+      const ta = (a as { timestamp?: number }).timestamp ?? 0;
+      const tb = (b as { timestamp?: number }).timestamp ?? 0;
+      return ta - tb;
+    });
+    return events;
   }
 
   // ---------------------------------------------------------------------------

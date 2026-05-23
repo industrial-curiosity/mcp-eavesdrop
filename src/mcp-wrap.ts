@@ -1,11 +1,13 @@
 import {
   MYAI_CONFIG_PATH,
   MYAI_EXT_DIR,
+  MYAI_IDE,
   MYAI_IPC_SOCKET,
   MYAI_REAL_SERVER,
   MYAI_REAL_URL,
   MYAI_SERVER_NAME,
   MYAI_WRAPPER_VERSION,
+  MYAI_WORKSPACE_SLUG,
 } from './types';
 
 export interface McpServerEntry {
@@ -22,8 +24,8 @@ export interface WrapOptions {
   configPath: string;
   extensionDir: string;
   wrapperVersion: string;
-  ipcSocket: string;
-  proxyPort: number;
+  ide: string;
+  workspaceSlug: string;
 }
 
 interface SerializedRealServer {
@@ -43,7 +45,12 @@ function stripMyAiEnv(env: Record<string, string> | undefined): Record<string, s
 }
 
 export function isWrapped(entry: McpServerEntry): boolean {
-  return Boolean(entry?.env?.[MYAI_IPC_SOCKET] || entry?.env?.[MYAI_REAL_URL]);
+  // Check MYAI_IPC_SOCKET for backward compat with entries wrapped by older extension versions
+  return Boolean(
+    entry?.env?.[MYAI_IPC_SOCKET] ||
+    entry?.env?.[MYAI_REAL_SERVER] ||
+    entry?.env?.[MYAI_REAL_URL],
+  );
 }
 
 export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServerEntry {
@@ -53,12 +60,15 @@ export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServe
     [MYAI_CONFIG_PATH]: options.configPath,
     [MYAI_EXT_DIR]: options.extensionDir,
     [MYAI_WRAPPER_VERSION]: options.wrapperVersion,
+    [MYAI_IDE]: options.ide,
+    [MYAI_WORKSPACE_SLUG]: options.workspaceSlug,
   };
 
   if (entry.url) {
+    // HTTP server → converted to stdio so it routes through the daemon TCP proxy (bridge mode)
     return {
-      ...entry,
-      url: `http://127.0.0.1:${options.proxyPort}/${options.serverName}`,
+      command: 'node',
+      args: [options.wrapperPath],
       env: {
         ...baseEnv,
         ...metadata,
@@ -75,11 +85,10 @@ export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServe
 
   return {
     command: 'node',
-    args: [options.wrapperPath, options.serverName],
+    args: [options.wrapperPath],
     env: {
       ...baseEnv,
       ...metadata,
-      [MYAI_IPC_SOCKET]: options.ipcSocket,
       [MYAI_REAL_SERVER]: JSON.stringify(serialized),
     },
   };
@@ -91,17 +100,12 @@ export function unwrapEntry(entry: McpServerEntry): McpServerEntry {
   if (env[MYAI_REAL_URL]) {
     const realUrl = env[MYAI_REAL_URL];
     const cleanEnv = stripMyAiEnv(env);
-    const restored: McpServerEntry = {
-      ...entry,
-      url: realUrl,
-    };
-
+    // Restore as a clean HTTP entry regardless of whether it was originally stdio or http
+    const restored: McpServerEntry = { url: realUrl };
+    if (entry.type) restored.type = entry.type;
     if (Object.keys(cleanEnv).length > 0) {
       restored.env = cleanEnv;
-    } else {
-      delete restored.env;
     }
-
     return restored;
   }
 

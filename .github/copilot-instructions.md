@@ -1,0 +1,15 @@
+# Copilot Instructions
+
+## Skill files
+
+When asked to update, edit, or create skills in this repo, always use `.agents/skills/<skill-name>/SKILL.md`.
+This includes any request framed as a "/opsx-*" command — those are implemented as skills, not prompt or command files.
+
+### Skill format
+
+Skills follow the [Agent Skills specification](https://agentskills.io/specification). Key requirements when creating or updating skills:
+
+- **`name`** (required): Must match the parent directory name exactly. Lowercase letters, numbers, and hyphens only. No consecutive hyphens. Max 64 characters.
+- **`description`** (required): Use imperative phrasing — "Use this skill when..." Focus on user intent, not implementation. Include keywords for indirect mentions of the domain. Max 1024 characters.
+- **Body**: Keep `SKILL.md` under 500 lines. Move detailed reference material to a `references/` subdirectory, with explicit instructions in the skill body for when to load each file.
+- **`allowed-tools`** (optional): Space-separated list of pre-approved tools the skill may use.

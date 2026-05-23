@@ -6,13 +6,12 @@ declare function acquireVsCodeApi(): {
 };
 
 // Mirror of src/types/events.ts — kept in sync manually
-// (Cannot import at runtime in a bundled webview IIFE that ships without
-// the extension host's module graph)
 type McpEventType =
   | 'tool_call_started'
   | 'tool_call_completed'
   | 'tool_call_failed'
-  | 'session_cleared';
+  | 'session_cleared'
+  | 'connections_changed';
 
 interface McpToolEvent {
   id: string;
@@ -24,6 +23,17 @@ interface McpToolEvent {
   result?: unknown;
   error?: string;
   durationMs?: number;
+  ide?: string;
+  workspaceSlug?: string;
+}
+
+interface Connection {
+  instanceId: string;
+  ide: string;
+  workspace: string;
+  workspaceSlug: string;
+  connectedAt: number;
+  lastHeartbeat: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -32,10 +42,7 @@ interface McpToolEvent {
 
 const vscode = acquireVsCodeApi();
 
-let ws: WebSocket | null = null;
-let proxyPort: number | null = null;
-let reconnectDelay = 1_000; // ms
-const MAX_RECONNECT_DELAY = 10_000;
+
 
 /** Track live DOM entries by event id for in-place updates */
 const entries = new Map<string, HTMLElement>();
@@ -43,25 +50,69 @@ const entries = new Map<string, HTMLElement>();
 const logContainer = document.getElementById('log') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const clearBtn = document.getElementById('clearBtn') as HTMLButtonElement;
+const connectionsEl = document.getElementById('connections') as HTMLElement | null;
+
+// Active filter: key = "ide/workspaceSlug", value = true (visible) | false (hidden)
+const filterState = new Map<string, boolean>();
+const FILTER_STORAGE_KEY = 'myai-filters';
+
+function loadFilters(): void {
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, boolean>;
+      for (const [k, v] of Object.entries(parsed)) filterState.set(k, v);
+    }
+  } catch { /* ignore */ }
+}
+
+function saveFilters(): void {
+  try {
+    const obj: Record<string, boolean> = {};
+    for (const [k, v] of filterState) obj[k] = v;
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(obj));
+  } catch { /* ignore */ }
+}
+
+function isVisible(event: McpToolEvent): boolean {
+  if (filterState.size === 0) return true;
+  const key = `${event.ide ?? ''}/${event.workspaceSlug ?? ''}`;
+  // If a filter key for this connection is present and false, hide it
+  const state = filterState.get(key);
+  return state !== false;
+}
+
+loadFilters();
 
 // ---------------------------------------------------------------------------
 // Message bus — receive messages from the extension host
 // ---------------------------------------------------------------------------
 
 window.addEventListener('message', (event: MessageEvent) => {
-  const data = event.data as { type: string; proxyPort?: number };
+  const data = event.data as {
+    type: string;
+    events?: McpToolEvent[];
+    event?: McpToolEvent;
+    connected?: boolean;
+    connections?: Connection[];
+  };
 
-  if (data.type === 'init' && typeof data.proxyPort === 'number') {
-    const newPort = data.proxyPort;
-    if (proxyPort !== newPort) {
-      // Port changed (e.g. proxy restarted) — reconnect
-      proxyPort = newPort;
-      ws?.close();
-    } else if (!ws || ws.readyState === WebSocket.CLOSED) {
-      connect();
+  if (data.type === 'history' && Array.isArray(data.events)) {
+    for (const evt of data.events) {
+      if (isVisible(evt)) handleEvent(evt, true);
     }
-    proxyPort = newPort;
-    connect();
+  }
+
+  if (data.type === 'event' && data.event) {
+    if (isVisible(data.event)) handleEvent(data.event, false);
+  }
+
+  if (data.type === 'status') {
+    setStatus(data.connected ? '' : 'Disconnected \u2014 reconnecting\u2026');
+  }
+
+  if (data.type === 'connections' && Array.isArray(data.connections)) {
+    renderConnections(data.connections);
   }
 });
 
@@ -77,44 +128,54 @@ function setStatus(text: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// WebSocket connection with exponential-backoff reconnect
+// Connections sidebar
 // ---------------------------------------------------------------------------
 
-function connect(): void {
-  if (!proxyPort) return;
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+function renderConnections(connections: Connection[]): void {
+  if (!connectionsEl) return;
+  connectionsEl.textContent = '';
 
-  ws = new WebSocket(`ws://127.0.0.1:${proxyPort}/events`);
+  if (connections.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'conn-empty';
+    empty.textContent = 'No active connections';
+    connectionsEl.appendChild(empty);
+    return;
+  }
 
-  ws.onopen = () => {
-    reconnectDelay = 1_000;
-    setStatus('');
-  };
+  for (const conn of connections) {
+    const key = `${conn.ide}/${conn.workspaceSlug}`;
+    if (!filterState.has(key)) filterState.set(key, true);
 
-  ws.onmessage = (event: MessageEvent) => {
-    try {
-      const mcpEvent = JSON.parse(event.data as string) as McpToolEvent;
-      handleEvent(mcpEvent);
-    } catch {
-      // Ignore malformed messages
-    }
-  };
+    const row = document.createElement('div');
+    row.className = 'conn-row';
 
-  ws.onclose = () => {
-    scheduleReconnect();
-  };
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.checked = filterState.get(key) !== false;
+    toggle.addEventListener('change', () => {
+      filterState.set(key, toggle.checked);
+      saveFilters();
+      reapplyFilters();
+    });
 
-  ws.onerror = () => {
-    // onclose fires after onerror; just close cleanly
-    ws?.close();
-  };
+    const label = document.createElement('label');
+    label.textContent = `${conn.ide}: ${conn.workspace}`;
+    label.title = `${conn.ide} / ${conn.workspaceSlug}`;
+
+    row.appendChild(toggle);
+    row.appendChild(label);
+    connectionsEl.appendChild(row);
+  }
 }
 
-function scheduleReconnect(): void {
-  setStatus('Disconnected — reconnecting\u2026');
-  const delay = reconnectDelay;
-  reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
-  setTimeout(connect, delay);
+function reapplyFilters(): void {
+  for (const [id, el] of entries) {
+    const ideAttr = el.dataset['ide'] ?? '';
+    const slugAttr = el.dataset['workspaceSlug'] ?? '';
+    const key = `${ideAttr}/${slugAttr}`;
+    el.style.display = filterState.get(key) === false ? 'none' : '';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -132,12 +193,19 @@ function isScrolledToBottom(): boolean {
 // Event rendering
 // ---------------------------------------------------------------------------
 
-function handleEvent(event: McpToolEvent): void {
+function handleEvent(event: McpToolEvent, isHistory: boolean): void {
+  if (event.type === 'connections_changed') {
+    return; // handled via connections endpoint; sidebar updates come from extension
+  }
+
   const wasAtBottom = isScrolledToBottom();
 
   switch (event.type) {
     case 'tool_call_started': {
       const entry = createStartedEntry(event);
+      entry.dataset['ide'] = event.ide ?? '';
+      entry.dataset['workspaceSlug'] = event.workspaceSlug ?? '';
+      if (!isVisible(event)) entry.style.display = 'none';
       entries.set(event.id, entry);
       logContainer.appendChild(entry);
       break;
@@ -153,11 +221,11 @@ function handleEvent(event: McpToolEvent): void {
       break;
     }
     case 'session_cleared':
-      clearLog();
-      return; // don't auto-scroll after a clear
+      if (!isHistory) clearLog();
+      return;
   }
 
-  if (wasAtBottom) {
+  if (!isHistory && wasAtBottom) {
     logContainer.scrollTop = logContainer.scrollHeight;
   }
 }
@@ -170,7 +238,6 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
   const div = document.createElement('div');
   div.className = 'entry in-progress';
 
-  // Header row
   const header = document.createElement('div');
   header.className = 'entry-header';
 
@@ -186,11 +253,17 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
   serverEl.className = 'entry-server';
   serverEl.textContent = event.serverName ?? '';
 
+  if (event.workspaceSlug) {
+    const sourceEl = document.createElement('span');
+    sourceEl.className = 'entry-source';
+    sourceEl.textContent = `${event.ide ?? ''}:${event.workspaceSlug}`;
+    header.appendChild(sourceEl);
+  }
+
   header.appendChild(statusIcon);
   header.appendChild(nameEl);
   header.appendChild(serverEl);
 
-  // Expandable details
   const details = document.createElement('div');
   details.className = 'entry-details';
 
@@ -201,10 +274,7 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
   div.appendChild(header);
   div.appendChild(details);
 
-  // Toggle expand on click
-  div.addEventListener('click', () => {
-    details.classList.toggle('expanded');
-  });
+  div.addEventListener('click', () => details.classList.toggle('expanded'));
 
   return div;
 }
@@ -246,17 +316,14 @@ function updateFailed(entry: HTMLElement, event: McpToolEvent): void {
   if (event.error) {
     const errorInline = document.createElement('div');
     errorInline.className = 'entry-error-inline';
-    errorInline.textContent = event.error; // textContent — no innerHTML
+    errorInline.textContent = event.error;
     entry.insertBefore(errorInline, entry.querySelector('.entry-details'));
-  }
 
-  if (event.error) {
     const details = entry.querySelector('.entry-details') as HTMLElement;
     details.appendChild(createDetailsSection('Error', event.error));
   }
 }
 
-/** Build a label + pre-formatted content block. Uses textContent — never innerHTML. */
 function createDetailsSection(label: string, value: unknown): HTMLElement {
   const section = document.createElement('div');
   section.className = 'entry-details-section';
@@ -280,15 +347,17 @@ function createDetailsSection(label: string, value: unknown): HTMLElement {
 // ---------------------------------------------------------------------------
 
 function clearLog(): void {
-  logContainer.textContent = ''; // clears all child nodes safely
+  logContainer.textContent = '';
   entries.clear();
 }
 
 // ---------------------------------------------------------------------------
-// Clear button
+// Buttons
 // ---------------------------------------------------------------------------
 
 clearBtn.addEventListener('click', () => {
   clearLog();
   vscode.postMessage({ type: 'clearSession' });
 });
+
+// Suppress unused warning for renderConnections — exported for potential future use

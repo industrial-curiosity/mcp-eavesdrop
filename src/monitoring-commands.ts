@@ -1,50 +1,35 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
-import { detectIde, resolveUserMcpConfigPath } from './mcp-config';
+import { detectIde, listMcpConfigPaths, resolveWorkspaceMcpConfigCandidates, type IdeKind } from './mcp-config';
+import {
+  countServers,
+  readMcpConfig,
+  resolveConfigRoot,
+  writeMcpConfig,
+  type McpConfig,
+  type McpEntry,
+} from './mcp-config-io';
 import { isWrapped, unwrapEntry, wrapEntry } from './mcp-wrap';
 import { deployWrapper } from './wrapper-deploy';
 
 interface MonitoringCommandOptions {
-  ipcSocketPath: string;
-  proxyPortProvider: () => number | undefined;
+  ide: string;
+  workspaceSlugProvider: () => string;
+  daemonProxyPortProvider: () => number | undefined;
 }
 
-type RootKey = 'servers' | 'mcpServers';
-
-interface McpEntry {
-  command?: string;
-  args?: string[];
-  env?: Record<string, string>;
-  url?: string;
-  type?: string;
+function workspaceFolderPath(): string | undefined {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-interface McpConfig {
-  servers?: Record<string, McpEntry>;
-  mcpServers?: Record<string, McpEntry>;
+function existingConfigPaths(ide: IdeKind): string[] {
+  return listMcpConfigPaths(ide, workspaceFolderPath()).filter((p) => fs.existsSync(p));
 }
 
-function readConfig(configPath: string): McpConfig | undefined {
-  if (!fs.existsSync(configPath)) {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf8')) as McpConfig;
-  } catch {
-    return undefined;
-  }
-}
-
-function writeConfig(configPath: string, data: McpConfig): void {
-  fs.writeFileSync(configPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
-}
-
-function getRoot(config: McpConfig, rootKey: RootKey): Record<string, McpEntry> {
-  if (!config[rootKey]) {
-    config[rootKey] = {};
-  }
-  return config[rootKey] ?? {};
+function countUnwrappedServers(config: McpConfig, preferredKey: 'servers' | 'mcpServers'): number {
+  const { root } = resolveConfigRoot(config, preferredKey);
+  return Object.values(root).filter((entry) => !isWrapped(entry)).length;
 }
 
 async function enableMonitoring(
@@ -52,10 +37,25 @@ async function enableMonitoring(
   options: MonitoringCommandOptions,
 ): Promise<void> {
   const ide = detectIde();
-  const configPath = resolveUserMcpConfigPath(ide.ide);
+  const configPaths = existingConfigPaths(ide.ide);
+  const pathsWithServers = configPaths.filter((p) => {
+    const config = readMcpConfig(p);
+    return config && countServers(config) > 0;
+  });
 
+  if (pathsWithServers.length === 0) {
+    const folder = workspaceFolderPath();
+    const hint = folder
+      ? ` Expected user config or workspace ${resolveWorkspaceMcpConfigCandidates(ide.ide, folder).join(' or ')}.`
+      : ' Open a workspace folder, then retry.';
+    vscode.window.showErrorMessage(`MyAI: No MCP configuration with servers found.${hint}`);
+    return;
+  }
+
+  const pathList = pathsWithServers.map((p) => `  • ${p}`).join('\n');
   const decision = await vscode.window.showInformationMessage(
-    `MyAI will update ${configPath}. You should expect one trust prompt per MCP server.`,
+    `MyAI will wrap MCP servers in:\n${pathList}\n\nExpect one trust prompt per server per config file.`,
+    { modal: true },
     'Enable',
     'Cancel',
   );
@@ -64,72 +64,73 @@ async function enableMonitoring(
     return;
   }
 
-  const config = readConfig(configPath);
-  if (!config) {
-    vscode.window.showErrorMessage(`MyAI: No MCP configuration found at ${configPath}`);
-    return;
-  }
-
-  const root = getRoot(config, ide.rootKey);
-  const entries = Object.entries(root);
-  if (entries.length === 0) {
-    vscode.window.showInformationMessage('MyAI: No MCP servers found to wrap.');
-    return;
-  }
-
-  if (entries.every(([, entry]) => isWrapped(entry))) {
-    vscode.window.showInformationMessage('MyAI: MCP monitoring is already enabled.');
-    return;
-  }
-
-  const deploy = deployWrapper(context);
-  const proxyPort = options.proxyPortProvider();
+  const proxyPort = options.daemonProxyPortProvider();
   if (proxyPort === undefined) {
-    vscode.window.showErrorMessage('MyAI: Proxy is not running, cannot enable monitoring yet.');
+    vscode.window.showErrorMessage('MyAI: Daemon is not running, cannot enable monitoring yet.');
     return;
   }
 
+  const deploy = deployWrapper(context, proxyPort);
   const extensionDir = context.extension.extensionPath;
-  for (const [serverName, entry] of entries) {
-    if (isWrapped(entry)) {
-      continue;
+  let totalWrapped = 0;
+
+  for (const configPath of pathsWithServers) {
+    const config = readMcpConfig(configPath);
+    if (!config) continue;
+
+    const { root, rootKey } = resolveConfigRoot(config, ide.rootKey);
+    let wrappedInFile = 0;
+
+    for (const [serverName, entry] of Object.entries(root)) {
+      if (isWrapped(entry)) continue;
+      root[serverName] = wrapEntry(entry, {
+        serverName,
+        wrapperPath: deploy.deployedPath,
+        configPath,
+        extensionDir,
+        wrapperVersion: deploy.version,
+        ide: options.ide,
+        workspaceSlug: options.workspaceSlugProvider(),
+      });
+      wrappedInFile += 1;
     }
 
-    root[serverName] = wrapEntry(entry, {
-      serverName,
-      wrapperPath: deploy.deployedPath,
-      configPath,
-      extensionDir,
-      wrapperVersion: deploy.version,
-      ipcSocket: options.ipcSocketPath,
-      proxyPort,
-    });
+    if (wrappedInFile > 0) {
+      writeMcpConfig(configPath, config);
+      totalWrapped += wrappedInFile;
+    }
   }
 
-  writeConfig(configPath, config);
-  vscode.window.showInformationMessage(`MyAI: MCP monitoring enabled for ${entries.length} server(s).`);
+  if (totalWrapped === 0) {
+    vscode.window.showInformationMessage('MyAI: MCP monitoring is already enabled for all configured servers.');
+    return;
+  }
+
+  vscode.window.showInformationMessage(
+    `MyAI: MCP monitoring enabled for ${totalWrapped} server(s) across ${pathsWithServers.length} config file(s). Reload the window, then use the agent.`,
+  );
 }
 
 async function disableMonitoring(): Promise<void> {
   const ide = detectIde();
-  const configPath = resolveUserMcpConfigPath(ide.ide);
-  const config = readConfig(configPath);
-
-  if (!config) {
-    vscode.window.showErrorMessage(`MyAI: No MCP configuration found at ${configPath}`);
-    return;
-  }
-
-  const root = getRoot(config, ide.rootKey);
-  const entries = Object.entries(root);
-
+  const configPaths = existingConfigPaths(ide.ide);
   let restored = 0;
-  for (const [name, entry] of entries) {
-    if (!entry?.env?.MYAI_IPC_SOCKET && !entry?.env?.MYAI_REAL_URL) {
-      continue;
+
+  for (const configPath of configPaths) {
+    const config = readMcpConfig(configPath);
+    if (!config) continue;
+
+    const { root } = resolveConfigRoot(config, ide.rootKey);
+    let restoredInFile = 0;
+    for (const [name, entry] of Object.entries(root)) {
+      if (!isWrapped(entry)) continue;
+      root[name] = unwrapEntry(entry);
+      restoredInFile += 1;
     }
-    root[name] = unwrapEntry(entry);
-    restored += 1;
+    if (restoredInFile > 0) {
+      writeMcpConfig(configPath, config);
+      restored += restoredInFile;
+    }
   }
 
   if (restored === 0) {
@@ -137,7 +138,6 @@ async function disableMonitoring(): Promise<void> {
     return;
   }
 
-  writeConfig(configPath, config);
   vscode.window.showInformationMessage(`MyAI: Restored ${restored} server(s) to original config.`);
 }
 
@@ -161,4 +161,37 @@ export function registerMonitoringCommands(
       disable.dispose();
     },
   };
+}
+
+/** Log MCP config coverage for the active IDE (helps diagnose Cursor vs VS Code dev host). */
+export function logMcpConfigDiagnostics(
+  ide: IdeKind,
+  log: (line: string) => void,
+  workspaceFolder?: string,
+): void {
+  for (const configPath of listMcpConfigPaths(ide, workspaceFolder)) {
+    const config = readMcpConfig(configPath);
+    if (!config) {
+      log(`MyAI: MCP config not found: ${configPath}`);
+      continue;
+    }
+    const { root } = resolveConfigRoot(config, ide === 'cursor' ? 'mcpServers' : 'servers');
+    const total = Object.keys(root).length;
+    const wrapped = Object.values(root).filter((e) => isWrapped(e)).length;
+    log(`MyAI: MCP ${configPath} — ${wrapped}/${total} server(s) monitored`);
+  }
+
+  if (ide === 'cursor' && workspaceFolder) {
+    const [cursorWs, vscodeWs] = resolveWorkspaceMcpConfigCandidates('cursor', workspaceFolder);
+    if (!fs.existsSync(cursorWs) && fs.existsSync(vscodeWs)) {
+      const config = readMcpConfig(vscodeWs);
+      const unwrapped = config ? countUnwrappedServers(config, 'mcpServers') : 0;
+      if (unwrapped > 0) {
+        log(
+          `MyAI: Cursor uses ${cursorWs} for workspace MCP; this repo only has ${vscodeWs}. ` +
+            'Run "MyAI: Enable MCP Monitoring" to wrap workspace servers, or add .cursor/mcp.json.',
+        );
+      }
+    }
+  }
 }

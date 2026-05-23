@@ -19,4 +19,8 @@ export interface McpToolEvent {
   error?: string;
   /** Duration in milliseconds (present on completed/failed events) */
   durationMs?: number;
+  /** IDE identifier (vscode, cursor) — added by daemon */
+  ide?: string;
+  /** Workspace slug — added by daemon */
+  workspaceSlug?: string;
 }
