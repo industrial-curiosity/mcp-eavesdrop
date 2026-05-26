@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execSync, spawnSync } from 'child_process';
-import { mkdirSync, existsSync, readFileSync, writeFileSync, readdirSync, renameSync } from 'fs';
+import { mkdirSync, existsSync, readFileSync, writeFileSync, readdirSync, renameSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
@@ -55,8 +55,8 @@ if (!prevChecksumFile) {
 const prevChecksum = readFileSync(join(REMOTE_DIR, prevChecksumFile), 'utf8').trim();
 
 if (latestChecksum === prevChecksum) {
-  console.log('No upstream changes detected.');
-  commit();
+  console.log('No upstream changes detected — skipping snapshot.');
+  unlinkSync(LATEST_PATH);
   process.exit(0);
 }
 
