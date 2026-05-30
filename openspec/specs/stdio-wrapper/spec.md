@@ -18,7 +18,7 @@ The stdio wrapper SHALL spawn the real MCP server as a child process using the c
 ---
 
 ### Requirement: Wrapper taps JSON-RPC stream and sends telemetry to proxy
-The wrapper SHALL parse the stdio byte stream for complete MCP JSON-RPC messages and POST `tool_call_started`, `tool_call_completed`, and `tool_call_failed` events to the daemon's Unix socket at `POST /telemetry`. Each event SHALL include `ide` and `workspaceSlug` fields sourced from `MYAI_IDE` and `MYAI_WORKSPACE_SLUG` environment variables. Telemetry SHALL be fire-and-forget — failures MUST NOT interrupt the stdio relay.
+The wrapper SHALL parse the stdio byte stream for complete MCP JSON-RPC messages and POST `tool_call_started`, `tool_call_completed`, and `tool_call_failed` events to the daemon's Unix socket at `POST /telemetry`. `handleJsonRpc` is called unconditionally — it is not gated on daemon reachability. Local log writes are always attempted. The `postTelemetry` call to the daemon Unix socket remains fire-and-forget and fails silently when unreachable. This requirement applies to both the stdio relay path and the HTTP direct mode path.
 
 #### Scenario: Tool call intercepted
 - **WHEN** a complete `{"method": "tools/call", ...}` JSON-RPC message is detected in the stream
@@ -37,7 +37,43 @@ The wrapper SHALL parse the stdio byte stream for complete MCP JSON-RPC messages
 
 ---
 
-### Requirement: Wrapper falls back gracefully if proxy is not running at startup
+### Requirement: Wrapper writes call log entries to local disk
+The wrapper SHALL append each `tool_call_started`, `tool_call_completed`, and `tool_call_failed` event to a JSON-Lines file at `~/.myai/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl`. This write is synchronous and occurs before any telemetry delivery to the daemon. A missing log directory SHALL be created automatically.
+
+#### Scenario: Successful log write
+- **WHEN** the wrapper generates a telemetry event
+- **THEN** the wrapper SHALL append `JSON.stringify(event) + '\n'` to the log file
+- **THEN** this write SHALL complete before the wrapper attempts to POST the event to the daemon
+
+#### Scenario: Log directory missing
+- **WHEN** the target log directory does not exist
+- **THEN** the wrapper SHALL create it with `mkdirSync({ recursive: true })` before writing
+
+#### Scenario: Daemon unreachable — log write still occurs
+- **WHEN** the daemon Unix socket is not connectable
+- **THEN** the wrapper SHALL still write the event to the local log file
+- **THEN** the wrapper SHALL continue the relay without interruption
+
+---
+
+### Requirement: Wrapper handles HTTP-bridged servers in direct mode
+When `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent, the wrapper SHALL forward each JSON-RPC request directly to `MYAI_REAL_URL` over HTTP/HTTPS, write the upstream response to stdout, and invoke the same `handleJsonRpc` telemetry path used by the stdio relay.
+
+#### Scenario: HTTP direct forward
+- **WHEN** `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent
+- **AND** a JSON-RPC message arrives on stdin
+- **THEN** the wrapper SHALL POST the message body directly to `MYAI_REAL_URL`
+- **THEN** the wrapper SHALL write the upstream response to stdout
+- **THEN** the wrapper SHALL invoke `handleJsonRpc` on both the outgoing request and the incoming response
+
+#### Scenario: Upstream unreachable in HTTP direct mode
+- **WHEN** the upstream server at `MYAI_REAL_URL` is not reachable
+- **THEN** the wrapper SHALL write a JSON-RPC error response (`{ "jsonrpc": "2.0", "id": <id>, "error": { "code": -32000, "message": "<reason>" } }`) to stdout
+- **THEN** the wrapper SHALL continue waiting for the next request without exiting
+
+---
+
+### Requirement: Wrapper falls back gracefully if daemon is not running at startup
 If the daemon Unix socket is not reachable when the wrapper starts, the wrapper SHALL continue operating in passthrough mode. The wrapper SHALL also attempt to read the daemon's current address from `~/.myai/daemon.json` as a fallback before giving up.
 
 #### Scenario: Daemon socket not reachable at startup
@@ -69,34 +105,3 @@ The wrapper source SHALL contain a comment `// MYAI_WRAPPER_VERSION=<n>` on its 
 #### Scenario: Version comment present
 - **WHEN** the extension reads `~/.myai/stdio-wrapper.js`
 - **THEN** it SHALL be able to extract the version number from the first line comment
-
----
-
-### Requirement: Wrapper reads embedded daemon connection constants with daemon.json fallback
-The deployed `stdio-wrapper.js` SHALL contain embedded constants `DAEMON_SOCKET_PATH` and `DAEMON_PROXY_PORT` written by the wrapper deploy step. If the embedded `DAEMON_PROXY_PORT` is unreachable, the wrapper SHALL read `~/.myai/daemon.json` to obtain the current proxy port and update its internal state for the lifetime of the process.
-
-#### Scenario: Embedded constants are current
-- **WHEN** the wrapper starts and the embedded `DAEMON_SOCKET_PATH` is connectable
-- **THEN** the wrapper SHALL use the embedded constants without reading any file
-
-#### Scenario: Embedded proxy port is stale (daemon restarted on new port)
-- **WHEN** the wrapper's embedded proxy port fails to connect
-- **THEN** the wrapper SHALL read `~/.myai/daemon.json`
-- **THEN** the wrapper SHALL use the port found in `daemon.json` for the lifetime of the process
-- **THEN** no write to `stdio-wrapper.js` SHALL occur (the wrapper never updates its own file)
-
----
-
-### Requirement: Wrapper operates in HTTP bridge mode for HTTP-origin MCP servers
-When `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent, the wrapper SHALL act as a stdio-to-HTTP bridge: receiving JSON-RPC from stdin, forwarding each request to the daemon's HTTP proxy at `http://127.0.0.1:{DAEMON_PROXY_PORT}/{MYAI_SERVER_NAME}` with an `x-upstream-url: {MYAI_REAL_URL}` header, and writing the response to stdout.
-
-#### Scenario: HTTP bridge mode activated
-- **WHEN** `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is unset
-- **THEN** the wrapper SHALL not spawn any child process
-- **THEN** the wrapper SHALL forward each JSON-RPC message from stdin as an HTTP POST to the daemon proxy
-- **THEN** the wrapper SHALL write the HTTP response body to stdout
-
-#### Scenario: Daemon proxy unreachable in bridge mode
-- **WHEN** the HTTP POST to the daemon proxy fails
-- **THEN** the wrapper SHALL write a JSON-RPC error response to stdout with code `-32000`
-- **THEN** the wrapper SHALL continue accepting subsequent messages

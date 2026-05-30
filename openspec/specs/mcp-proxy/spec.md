@@ -1,45 +1,11 @@
-### Requirement: Proxy forwards MCP JSON-RPC requests to upstream servers
-The daemon's HTTP MCP proxy SHALL accept MCP HTTP POST requests and transparently forward them to the upstream MCP server URL specified in the `x-upstream-url` request header, returning the upstream response to the caller.
-
-#### Scenario: Successful tool call forwarding
-- **WHEN** an agent sends a JSON-RPC `tools/call` request to the proxy with an `x-upstream-url` header
-- **THEN** the proxy SHALL forward the request to the upstream MCP server
-- **THEN** the proxy SHALL return the upstream response unchanged to the agent
-- **THEN** the total added latency SHALL be less than 50ms for requests under 10KB
-
-#### Scenario: Upstream server unreachable
-- **WHEN** the upstream MCP server cannot be reached
-- **THEN** the proxy SHALL return a JSON-RPC error response with code `-32000` and a message describing the connectivity failure
-
----
-
-### Requirement: Proxy emits structured events for tool calls
-The daemon SHALL emit `McpToolEvent` objects enriched with `ide` and `workspaceSlug` fields for every intercepted tool call, persisting them to disk and broadcasting them to all registered SSE connections.
-
-#### Scenario: Tool call started event
-- **WHEN** the proxy receives a `tools/call` request
-- **THEN** the daemon SHALL emit a `tool_call_started` event with `id`, `toolName`, `serverName`, `timestamp`, `arguments`, `ide`, and `workspaceSlug`
-- **THEN** `arguments` SHALL be truncated to 10KB if larger
-
-#### Scenario: Tool call completed event
-- **WHEN** the upstream server returns a successful response
-- **THEN** the daemon SHALL emit a `tool_call_completed` event with the matching `id`, `result`, `durationMs`, `ide`, and `workspaceSlug`
-- **THEN** `result` SHALL be truncated to 10KB if larger
-
-#### Scenario: Tool call failed event
-- **WHEN** the upstream server returns an error or is unreachable
-- **THEN** the daemon SHALL emit a `tool_call_failed` event with the matching `id`, `error` message, `durationMs`, `ide`, and `workspaceSlug`
-
----
-
 ### Requirement: Proxy accepts telemetry POSTs from the stdio wrapper
-The daemon SHALL accept `POST /telemetry` requests on its Unix socket HTTP server containing a `McpToolEvent` JSON body plus `ide` and `workspaceSlug` fields, persist the event, and broadcast it to all registered SSE connections.
+The daemon SHALL accept `POST /telemetry` requests on its Unix socket HTTP server containing a `McpToolEvent` JSON body plus `ide` and `workspaceSlug` fields and broadcast the event to all registered SSE connections. The daemon SHALL NOT write the event to disk — event persistence is the wrapper's responsibility.
 
 #### Scenario: Wrapper posts a tool_call_started event
 - **WHEN** the daemon receives `POST /telemetry` with a valid `McpToolEvent` body including `ide` and `workspaceSlug`
-- **THEN** the daemon SHALL append the event to `~/.myai/logs/{ide}/{workspaceSlug}.jsonl`
 - **THEN** the daemon SHALL broadcast the event to all open SSE streams
 - **THEN** the daemon SHALL respond with `200 {}`
+- **THEN** the daemon SHALL NOT write the event to disk
 
 #### Scenario: Malformed telemetry body
 - **WHEN** the body is not valid JSON or is missing required fields (`id`, `type`, `timestamp`)
@@ -47,4 +13,4 @@ The daemon SHALL accept `POST /telemetry` requests on its Unix socket HTTP serve
 
 #### Scenario: No SSE connections open
 - **WHEN** a telemetry event arrives and no SSE streams are open
-- **THEN** the daemon SHALL still persist the event to disk and respond `200 {}`
+- **THEN** the daemon SHALL respond `200 {}` and make no disk write
