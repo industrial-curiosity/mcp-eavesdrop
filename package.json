@@ -56,7 +56,7 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.41",
     "@types/vscode": "^1.85.0",
     "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^7.0.0",

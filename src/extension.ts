@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import * as http from 'http';
-import * as net from 'net';
-import * as os from 'os';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as crypto from 'crypto';
-import * as cp from 'child_process';
+import * as http from 'node:http';
+import * as net from 'node:net';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as crypto from 'node:crypto';
+import * as cp from 'node:child_process';
 import { AgentPanel } from './panel/AgentPanel';
 import { logMcpConfigDiagnostics, registerMonitoringCommands } from './monitoring-commands';
 import { checkForStaleWrappers } from './stale-check';
@@ -448,7 +448,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     AgentPanel.createOrShow(context.extensionUri);
   });
 
-  AgentPanel.onDidDispose = () => context.globalState.update('panelWasOpen', false);
+  AgentPanel.onDidDispose = () => { void context.globalState.update('panelWasOpen', false); };
 
   // ---------------------------------------------------------------------------
   // Fetch connections and push to panel

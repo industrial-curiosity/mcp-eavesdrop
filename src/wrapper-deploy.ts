@@ -1,6 +1,6 @@
-import * as fs from 'fs';
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { DAEMON_SOCKET_PATH } from './daemon/constants';
 
@@ -18,7 +18,7 @@ export function resolveStableWrapperPath(homeDir = os.homedir()): string {
 }
 
 export function readWrapperVersionFromContent(content: string): string | undefined {
-  const match = content.match(VERSION_PATTERN);
+  const match = VERSION_PATTERN.exec(content);
   return match?.[1]?.trim();
 }
 

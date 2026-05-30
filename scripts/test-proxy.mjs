@@ -18,11 +18,11 @@
  *   npm run build
  */
 
-import http from 'http';
-import net from 'net';
-import os from 'os';
-import path from 'path';
-import { spawn } from 'child_process';
+import http from 'node:http';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
 
 const HOME = os.homedir();
 const SOCKET = path.join(HOME, '.myai', 'ipc.sock');

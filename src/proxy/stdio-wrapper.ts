@@ -1,9 +1,9 @@
 // MYAI_WRAPPER_VERSION=4
-import * as fs from 'fs';
-import * as http from 'http';
-import * as https from 'https';
-import { spawn } from 'child_process';
-import * as crypto from 'crypto';
+import * as fs from 'node:fs';
+import * as http from 'node:http';
+import * as https from 'node:https';
+import { spawn } from 'node:child_process';
+import * as crypto from 'node:crypto';
 import { unwrapEntry } from '../mcp-wrap';
 import {
   MYAI_CONFIG_PATH,
@@ -74,7 +74,7 @@ function parseRealServer(): { command: string; args: string[]; env: Record<strin
   return {
     command: parsed.command,
     args: [...(parsed.args ?? [])],
-    env: { ...(parsed.env ?? {}) },
+    env: { ...parsed.env },
   };
 }
 
@@ -170,7 +170,7 @@ function selfHealConfig(): void {
       continue;
     }
 
-    root[serverName] = unwrapEntry(entry as { [key: string]: unknown }) as unknown;
+    root[serverName] = unwrapEntry(entry);
     try {
       fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
     } catch (error) {
@@ -208,7 +208,7 @@ function spawnRealWithInheritedStdio(): void {
   });
 }
 
-function parseLengthPrefixedFrames(buffer: Buffer): { messages: JsonRpcMessage[]; rest: Buffer } {
+function parseLengthPrefixedFrames(buffer: Buffer<ArrayBufferLike>): { messages: JsonRpcMessage[]; rest: Buffer<ArrayBufferLike> } {
   const messages: JsonRpcMessage[] = [];
   let cursor = 0;
 
@@ -314,9 +314,9 @@ async function main(): Promise<void> {
   const trackedCalls = new Map<string, TrackedCall>();
   const serverName = getEnv(MYAI_SERVER_NAME);
 
-  let framedRemainder = Buffer.alloc(0);
+  let framedRemainder: Buffer<ArrayBufferLike> = Buffer.alloc(0);
   let ndjsonRemainder = '';
-  let requestFramedRemainder = Buffer.alloc(0);
+  let requestFramedRemainder: Buffer<ArrayBufferLike> = Buffer.alloc(0);
   let requestNdjsonRemainder = '';
 
   process.stdin.on('data', (chunk: Buffer) => {
