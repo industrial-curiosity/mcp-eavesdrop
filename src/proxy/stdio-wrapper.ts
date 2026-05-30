@@ -1,4 +1,4 @@
-// MYAI_WRAPPER_VERSION=2
+// MYAI_WRAPPER_VERSION=3
 import * as fs from 'fs';
 import * as http from 'http';
 import * as net from 'net';
@@ -26,6 +26,7 @@ interface JsonRpcMessage {
   params?: {
     name?: string;
     arguments?: unknown;
+    _meta?: Record<string, unknown>;
   };
   result?: unknown;
   error?: unknown;
@@ -486,6 +487,9 @@ function handleJsonRpc(
   if (message.method === 'tools/call') {
     const requestId = message.id;
     const eventId = crypto.randomUUID();
+    process.stderr.write(
+      `myai-debug: _meta=${JSON.stringify(message.params?._meta ?? null)}\n`
+    );
     postTelemetry(socketPath, {
       id: eventId,
       type: 'tool_call_started',
