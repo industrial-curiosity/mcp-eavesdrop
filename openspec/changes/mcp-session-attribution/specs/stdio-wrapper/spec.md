@@ -5,8 +5,6 @@ The wrapper SHALL parse the stdio byte stream for complete MCP JSON-RPC messages
 
 The `_meta` field on `JsonRpcMessage.params` SHALL be typed as `Record<string, unknown>` — it MUST NOT be narrowed to only the currently known keys. This ensures future `_meta` fields added by VS Code are preserved and available without requiring a type change. `conversationId` and `requestId` are read by key access; all other fields are forwarded as-is.
 
-**Scope note:** This requirement applies only to the stdio relay path (`handleJsonRpc`). The HTTP bridge path (`runHttpBridgeMode` / `forwardToTcpProxy`) forwards the raw JSON-RPC body to the daemon TCP proxy and does not invoke `handleJsonRpc`. Session attribution for HTTP-bridged servers is out of scope for this change.
-
 #### Scenario: Tool call intercepted with session metadata
 - **WHEN** a complete `{"method": "tools/call", ...}` JSON-RPC message is detected in the stream and `_meta['vscode.conversationId']` is present
 - **THEN** the wrapper SHALL POST a `tool_call_started` event including `conversationId` and `requestId` alongside `ide` and `workspaceSlug`

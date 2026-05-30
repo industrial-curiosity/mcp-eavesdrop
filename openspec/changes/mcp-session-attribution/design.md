@@ -24,7 +24,7 @@ The stdio wrapper currently discards `params._meta` entirely. The telemetry pipe
 - Resolving conversation IDs to human-readable session titles.
 - Any use of proposed/private VS Code APIs.
 - Cursor-specific verification — VS Code is the implementation target; Cursor support is deferred.
-- Capturing `_meta` fields from the HTTP bridge code path (`runHttpBridgeMode` / `forwardToTcpProxy`) — that path forwards the raw JSON-RPC body to the daemon TCP proxy and does not run `handleJsonRpc`. Session attribution for HTTP-bridged servers is out of scope for this change.
+- HTTP-bridged server session attribution is out of scope for this change. The `proxy-without-extension` change will unify the HTTP and stdio wrapper paths through `handleJsonRpc`, at which point session attribution for HTTP-bridged servers will be included automatically with no additional work here.
 
 ## Decisions
 
