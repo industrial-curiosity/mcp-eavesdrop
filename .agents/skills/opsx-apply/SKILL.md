@@ -93,7 +93,7 @@ Implement tasks from an OpenSpec change.
    - Make the code changes required
    - Keep changes minimal and focused
    - If the implementation approach diverges from the task's literal description but still satisfies the intent, update the task description to match before marking it done
-   - Mark task complete in the tasks file: `- [ ]` → `- [x]`
+   - **Write the checkbox to `tasks.md` immediately** using a file edit tool: `- [ ]` → `- [x]`. The `manage_todo_list` conversation tool is supplemental session tracking only — it does not replace the persistent record in `tasks.md`. Do not batch or defer checkbox writes to end-of-session.
    - Continue to next task
 
    **Pause if:**
