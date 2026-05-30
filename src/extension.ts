@@ -1,17 +1,16 @@
 import * as vscode from 'vscode';
-import * as http from 'http';
-import * as net from 'net';
-import * as os from 'os';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as crypto from 'crypto';
-import * as cp from 'child_process';
+import * as http from 'node:http';
+import * as net from 'node:net';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as crypto from 'node:crypto';
+import * as cp from 'node:child_process';
 import { AgentPanel } from './panel/AgentPanel';
 import { logMcpConfigDiagnostics, registerMonitoringCommands } from './monitoring-commands';
 import { checkForStaleWrappers } from './stale-check';
 import { detectIde, resolveUserMcpConfigPath } from './mcp-config';
 import { DAEMON_SOCKET_PATH } from './daemon/constants';
-import { deployWrapper } from './wrapper-deploy';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -47,7 +46,6 @@ let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 let reconnectFailureCount = 0;
 let daemonConnected = false;
-let daemonProxyPort: number | undefined;
 let ideConfig: ReturnType<typeof detectIde>;
 let extensionContext: vscode.ExtensionContext | undefined;
 let registeredWorkspaceName = 'default';
@@ -55,7 +53,6 @@ let registeredWorkspaceSlug = 'default';
 
 interface DaemonJson {
   pid: number;
-  proxyPort: number;
   socketPath: string;
   startedAt: number;
 }
@@ -289,16 +286,8 @@ function startDaemonMonitor(): void {
           if (reconnected) {
             reconnectFailureCount = 0;
             const newInfo = readDaemonJson();
-            // 5.2: Re-deploy wrapper if port changed after daemon restart
-            if (newInfo?.proxyPort !== undefined && newInfo.proxyPort !== daemonProxyPort) {
-              myaiLog(`MyAI: daemon port changed ${daemonProxyPort} → ${newInfo.proxyPort}, re-deploying wrapper`);
-              daemonProxyPort = newInfo.proxyPort;
-              deployWrapper(extensionContext, daemonProxyPort);
-              if (AgentPanel.currentPanel) {
-                AgentPanel.createOrShow(extensionContext.extensionUri, daemonProxyPort);
-              }
-            } else {
-              daemonProxyPort = newInfo?.proxyPort;
+            if (newInfo) {
+              myaiLog(`MyAI: daemon restarted (pid=${newInfo.pid})`);
             }
             // Re-register with the fresh daemon
             await postDaemon(DAEMON_SOCKET_PATH, '/register', {
@@ -405,8 +394,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   const daemonInfo = readDaemonJson();
-  daemonProxyPort = daemonInfo?.proxyPort;
-  myaiLog(`MyAI: daemon proxy port ${daemonProxyPort ?? 'unknown'}`);
+  if (daemonInfo) {
+    myaiLog(`MyAI: daemon running (pid=${daemonInfo.pid})`);
+  }
 
   applyWorkspaceIdentity(context);
   const folder = vscode.workspace.workspaceFolders?.[0];
@@ -454,35 +444,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   const openPanelCmd = vscode.commands.registerCommand('myai.openPanel', () => {
-    if (!daemonProxyPort) {
-      vscode.window.showErrorMessage('MyAI: Daemon is not running. Try reloading the window.');
-      return;
-    }
     context.globalState.update('panelWasOpen', true);
-    AgentPanel.createOrShow(context.extensionUri, daemonProxyPort);
+    AgentPanel.createOrShow(context.extensionUri);
   });
 
-  AgentPanel.onDidDispose = () => context.globalState.update('panelWasOpen', false);
+  AgentPanel.onDidDispose = () => { void context.globalState.update('panelWasOpen', false); };
 
   // ---------------------------------------------------------------------------
   // Fetch connections and push to panel
   // ---------------------------------------------------------------------------
 
   const clearSessionCmd = vscode.commands.registerCommand('myai.clearSession', async () => {
-    if (!daemonProxyPort) return;
     try {
-      await fetch(`http://127.0.0.1:${daemonProxyPort}/internal/clear`, { method: 'POST' });
+      await postDaemon(DAEMON_SOCKET_PATH, '/internal/clear', {});
     } catch (err) {
       myaiLog(`clearSession failed: ${err}`);
     }
   });
 
   const showConfigCmd = vscode.commands.registerCommand('myai.showMcpConfig', () => {
-    if (!daemonProxyPort) {
-      vscode.window.showErrorMessage('MyAI: Daemon is not running yet. Please wait a moment and try again.');
-      return;
-    }
-    if (outputChannel) showProxyConfigSnippet(daemonProxyPort, outputChannel);
+    if (outputChannel) showProxyConfigSnippet(outputChannel);
   });
 
   context.subscriptions.push(openPanelCmd, clearSessionCmd, showConfigCmd);
@@ -490,11 +471,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerMonitoringCommands(context, {
     ide: ideConfig.ide,
     workspaceSlugProvider: () => registeredWorkspaceSlug,
-    daemonProxyPortProvider: () => daemonProxyPort,
   });
 
-  if (context.globalState.get('panelWasOpen') && daemonProxyPort) {
-    AgentPanel.createOrShow(context.extensionUri, daemonProxyPort);
+  if (context.globalState.get('panelWasOpen')) {
+    AgentPanel.createOrShow(context.extensionUri);
   }
 }
 
@@ -560,7 +540,7 @@ function readMcpConfigForDisplay(): { servers: Record<string, McpServerConfig>; 
   }
 }
 
-function showProxyConfigSnippet(port: number, channel: vscode.OutputChannel): void {
+function showProxyConfigSnippet(channel: vscode.OutputChannel): void {
   const { servers: allServers, source } = readMcpConfigForDisplay();
   if (Object.keys(allServers).length === 0) {
     vscode.window.showInformationMessage('MyAI: No MCP servers found in IDE user mcp.json.');
@@ -576,11 +556,6 @@ function showProxyConfigSnippet(port: number, channel: vscode.OutputChannel): vo
     }
   }
 
-  const proxied: Record<string, { type: string; url: string }> = {};
-  for (const name of Object.keys(mcpServers)) {
-    proxied[name] = { type: 'http', url: `http://127.0.0.1:${port}/${name}` };
-  }
-
   channel.clear();
   channel.appendLine(`// Source: ${source}`);
   channel.appendLine(`// Found ${Object.keys(allServers).length} total server(s)`);
@@ -588,11 +563,10 @@ function showProxyConfigSnippet(port: number, channel: vscode.OutputChannel): vo
   channel.appendLine(`// Stdio server(s): ${stdioServers.length}`);
   channel.appendLine('');
   if (Object.keys(mcpServers).length > 0) {
-    const rootKey = detectIde().rootKey;
-    const snippet = JSON.stringify({ [rootKey]: proxied }, null, 2);
-    channel.appendLine('// HTTP proxy snippet:');
-    channel.appendLine('');
-    channel.appendLine(snippet);
+    channel.appendLine('// HTTP servers (monitored via direct forwarding):');
+    for (const [name, url] of Object.entries(mcpServers)) {
+      channel.appendLine(`// - ${name}: ${url}`);
+    }
     channel.appendLine('');
   }
   if (stdioServers.length > 0) {

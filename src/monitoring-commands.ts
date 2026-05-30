@@ -1,5 +1,4 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 import { detectIde, listMcpConfigPaths, resolveWorkspaceMcpConfigCandidates, type IdeKind } from './mcp-config';
 import {
@@ -8,7 +7,6 @@ import {
   resolveConfigRoot,
   writeMcpConfig,
   type McpConfig,
-  type McpEntry,
 } from './mcp-config-io';
 import { isWrapped, unwrapEntry, wrapEntry } from './mcp-wrap';
 import { deployWrapper } from './wrapper-deploy';
@@ -16,7 +14,6 @@ import { deployWrapper } from './wrapper-deploy';
 interface MonitoringCommandOptions {
   ide: string;
   workspaceSlugProvider: () => string;
-  daemonProxyPortProvider: () => number | undefined;
 }
 
 function workspaceFolderPath(): string | undefined {
@@ -64,13 +61,7 @@ async function enableMonitoring(
     return;
   }
 
-  const proxyPort = options.daemonProxyPortProvider();
-  if (proxyPort === undefined) {
-    vscode.window.showErrorMessage('MyAI: Daemon is not running, cannot enable monitoring yet.');
-    return;
-  }
-
-  const deploy = deployWrapper(context, proxyPort);
+  const deploy = deployWrapper(context);
   const extensionDir = context.extension.extensionPath;
   let totalWrapped = 0;
 
@@ -78,7 +69,7 @@ async function enableMonitoring(
     const config = readMcpConfig(configPath);
     if (!config) continue;
 
-    const { root, rootKey } = resolveConfigRoot(config, ide.rootKey);
+    const { root } = resolveConfigRoot(config, ide.rootKey);
     let wrappedInFile = 0;
 
     for (const [serverName, entry] of Object.entries(root)) {

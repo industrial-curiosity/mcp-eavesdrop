@@ -16,11 +16,11 @@
  *   node scripts/test-daemon.mjs
  */
 
-import http from 'http';
-import os from 'os';
-import path from 'path';
-import { spawn } from 'child_process';
-import { readFile } from 'fs/promises';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 
 const HOME = os.homedir();
 const DAEMON_SOCKET = path.join(HOME, '.myai', 'ipc.sock');
@@ -65,7 +65,7 @@ function get(socketPath, urlPath) {
 function pollSocket(socketPath, timeoutMs = 5000) {
   return new Promise((resolve) => {
     const deadline = Date.now() + timeoutMs;
-    const { createConnection } = await import('net');
+    const { createConnection } = await import('node:net');
     function attempt() {
       const sock = createConnection(socketPath);
       sock.setTimeout(300);
@@ -127,7 +127,7 @@ daemon.stdout.on('data', d => process.stdout.write('[daemon] ' + d.toString()));
 
 log('Waiting for daemon socket…');
 const ready = await new Promise((resolve) => {
-  const { createConnection } = await import('net');
+  const { createConnection } = await import('node:net');
   const deadline = Date.now() + 5000;
   function attempt() {
     const sock = createConnection(DAEMON_SOCKET);
@@ -161,9 +161,9 @@ log(`Connections: ${conns.body.total} ✓`);
 // Subscribe to SSE on instance-1 and post a telemetry event (fire and forget)
 const ssePromise = subscribeSse(DAEMON_SOCKET, 'test-instance-1', 5000);
 
-// Read daemon.json for proxyPort
+// Read daemon.json to verify pid and socketPath
 const daemonJson = JSON.parse(await readFile(DAEMON_JSON, 'utf8'));
-log(`Proxy port: ${daemonJson.proxyPort}`);
+log(`Daemon pid: ${daemonJson.pid}, socket: ${daemonJson.socketPath}`);
 
 // Post telemetry to daemon via telemetry endpoint
 const eventId = 'test-event-' + Date.now();

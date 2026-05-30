@@ -31,7 +31,7 @@ All open IDE windows (VS Code, Cursor, or any VS Code fork) connect to a single 
 The daemon writes its state to `~/.myai/daemon.json`:
 
 ```json
-{ "pid": 12345, "proxyPort": 7331, "socketPath": "/Users/you/.myai/ipc.sock", "startedAt": 1700000000000 }
+{ "pid": 12345, "socketPath": "/Users/you/.myai/ipc.sock", "startedAt": 1700000000000 }
 ```
 
 #### `~/.myai/` directory structure

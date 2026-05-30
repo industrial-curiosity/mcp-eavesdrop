@@ -1,5 +1,17 @@
 # TODO
 
+use https://agentskills.io/
+
+## proxy whether extension active or not
+
+right now the mcp servers configured for proxying are only proxied if the extension is active, but if the extension is inactive then calls to those servers will fail. the wrapper should activate the proxy regardless of extension state and the proxy should record the results regardless of extension state.
+
+## Agent monitoring panel
+
+It should always open empty, if the user wants to see historical events that should be available either on command or in a different window.
+
+## test cursor meta fields for session id
+
 ## MCP configurations
 
 it needs to be able to read the configured mcps in vscode or cursor format, rewrite them to point to the local proxy, and then the proxy needs to forward calls and emit events to the panel. the panel needs to display those events in a readable format.
@@ -17,3 +29,11 @@ You paste that into your mcp.json, and from then on VS Code routes context7 tool
 ## MCP status
 
 we need to be able to enable or disable mcps via the extension and see their status in the panel. we also need to show a status indicator for the proxy and provide enable/disable/restart controls.
+
+instead of enable disable commands, show mcp list in the agent monitoring window
+
+status of mcp server (monitoring enabled / disabled) and whether mcp is currently in use should be displayed with an indicator (red / grey / green)
+
+poll whether the mcps are enabled or disabled every ten seconds
+
+## Activated rules and skills
