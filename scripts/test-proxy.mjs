@@ -2,17 +2,14 @@
 /**
  * scripts/test-proxy.mjs
  *
- * End-to-end smoke test for the shared IPC daemon and HTTP proxy.
+ * End-to-end smoke test for the shared IPC daemon.
  *
  * Scenarios:
  *   1. Start daemon, wait for socket to be ready.
  *   2. Register an instance and verify it appears in GET /connections.
- *   3. Subscribe to SSE /events; POST /telemetry and confirm event is broadcast.
+ *   3. Subscribe to SSE /events; POST tool_call_started + tool_call_completed telemetry and confirm both are broadcast.
  *   4. POST /heartbeat and verify 200 response.
- *   5. Start a mock HTTP upstream; route a tools/call through the TCP proxy;
- *      verify HTTP response and that tool_call_started / tool_call_completed
- *      events arrive on the SSE stream.
- *   6. Deregister and clean up.
+ *   5. Deregister and clean up.
  *
  * Usage:
  *   node scripts/test-proxy.mjs
@@ -23,7 +20,6 @@
 
 import http from 'http';
 import net from 'net';
-import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { spawn } from 'child_process';
@@ -124,67 +120,6 @@ function waitForEvent(events, predicate, timeoutMs = 6000) {
 }
 
 // ---------------------------------------------------------------------------
-// Mock HTTP upstream (for proxy routing test)
-// ---------------------------------------------------------------------------
-
-function startMockServer() {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer((req, res) => {
-      const chunks = [];
-      req.on('data', c => chunks.push(c));
-      req.on('end', () => {
-        let body;
-        try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { body = {}; }
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({
-          jsonrpc: '2.0',
-          id: body.id ?? 1,
-          result: { content: [{ type: 'text', text: 'mock-ok' }], echoed: body?.params?.arguments ?? {} },
-        }));
-      });
-    });
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      const { port } = server.address();
-      log(`Mock upstream on 127.0.0.1:${port}`);
-      resolve({ server, port });
-    });
-  });
-}
-
-// ---------------------------------------------------------------------------
-// TCP proxy helper
-// ---------------------------------------------------------------------------
-
-function callThroughProxy(proxyPort, upstreamPort, toolName, args) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: toolName, arguments: args } });
-    const req = http.request({
-      hostname: '127.0.0.1',
-      port: proxyPort,
-      path: '/mock',
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'content-length': Buffer.byteLength(body),
-        'x-upstream-url': `http://127.0.0.1:${upstreamPort}/`,
-      },
-    }, (res) => {
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => {
-        try { resolve({ status: res.statusCode, body: JSON.parse(Buffer.concat(chunks).toString('utf8')) }); }
-        catch { resolve({ status: res.statusCode, raw: Buffer.concat(chunks).toString('utf8') }); }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(10_000, () => req.destroy(new Error('proxy request timed out')));
-    req.write(body);
-    req.end();
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -223,8 +158,9 @@ log(`GET /connections ✓ (${conns.total} total, test instance present)`);
 // --- 3. Subscribe SSE and test /telemetry broadcast ---
 const { events, req: sseReq } = subscribeEvents(SOCKET, INSTANCE_ID);
 
+const eventId = 'proxy-test-tel-' + Date.now();
 const telemetryEvent = {
-  id: 'proxy-test-tel-' + Date.now(),
+  id: eventId,
   type: 'tool_call_started',
   timestamp: Date.now(),
   toolName: 'test_tool',
@@ -235,40 +171,33 @@ const telemetryEvent = {
 const telRes = await post(SOCKET, '/telemetry', telemetryEvent);
 if (telRes.status !== 200) fail(`/telemetry returned ${telRes.status}`);
 
-const broadcastEvt = await waitForEvent(events, e => e.id === telemetryEvent.id);
+const broadcastEvt = await waitForEvent(events, e => e.id === eventId && e.type === 'tool_call_started');
 if (broadcastEvt.type !== 'tool_call_started') fail('SSE event type mismatch');
 log('Telemetry broadcast via SSE ✓');
+
+const completedEvent = {
+  id: eventId,
+  type: 'tool_call_completed',
+  timestamp: Date.now(),
+  toolName: 'test_tool',
+  serverName: 'test-server',
+  ide: 'vscode',
+  workspaceSlug: 'proxy-test-ws',
+  durationMs: 42,
+  result: { content: [{ type: 'text', text: 'ok' }] },
+};
+const telRes2 = await post(SOCKET, '/telemetry', completedEvent);
+if (telRes2.status !== 200) fail(`/telemetry (completed) returned ${telRes2.status}`);
+await waitForEvent(events, e => e.id === eventId && e.type === 'tool_call_completed');
+log('Telemetry completed event broadcast via SSE ✓');
 
 // --- 4. Heartbeat ---
 const hbRes = await post(SOCKET, '/heartbeat', { instanceId: INSTANCE_ID });
 if (hbRes.status !== 200) fail(`/heartbeat returned ${hbRes.status}`);
 log('Heartbeat ✓');
 
-// --- 5. HTTP proxy (tools/call routing with SSE telemetry) ---
-
-// Read proxyPort from daemon.json
-const daemonJson = JSON.parse(fs.readFileSync(path.join(HOME, '.myai', 'daemon.json'), 'utf8'));
-const proxyPort = daemonJson.proxyPort;
-log(`Proxy port: ${proxyPort}`);
-
-const { server: mockServer, port: mockPort } = await startMockServer();
-const toolName = 'proxy-echo';
-const toolArgs = { msg: 'hello-from-test', ts: Date.now() };
-
-const proxyResult = await callThroughProxy(proxyPort, mockPort, toolName, toolArgs);
-if (proxyResult.status !== 200) fail(`proxy returned HTTP ${proxyResult.status}`);
-if (!proxyResult.body?.result) fail('proxy response missing .result');
-log('Proxy tools/call HTTP response ✓');
-
-// Verify SSE received tool_call_started and tool_call_completed from proxy
-const startedEvt = await waitForEvent(events, e => e.type === 'tool_call_started' && e.toolName === toolName);
-const completedEvt = await waitForEvent(events, e => e.type === 'tool_call_completed' && e.id === startedEvt.id);
-if (typeof completedEvt.durationMs !== 'number') fail('completed event missing durationMs');
-log('Proxy emits tool_call_started + tool_call_completed via SSE ✓');
-
 // --- Cleanup ---
 sseReq.destroy();
-mockServer.close();
 await post(SOCKET, '/deregister', { instanceId: INSTANCE_ID }).catch(() => {});
 if (ownsDaemon && daemon) daemon.kill();
 

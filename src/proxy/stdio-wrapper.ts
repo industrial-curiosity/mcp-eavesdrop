@@ -1,7 +1,7 @@
-// MYAI_WRAPPER_VERSION=3
+// MYAI_WRAPPER_VERSION=4
 import * as fs from 'fs';
 import * as http from 'http';
-import * as net from 'net';
+import * as https from 'https';
 import { spawn } from 'child_process';
 import * as crypto from 'crypto';
 import { unwrapEntry } from '../mcp-wrap';
@@ -17,7 +17,6 @@ import {
 
 // These values are injected at deploy time by wrapper-deploy.ts
 const DAEMON_SOCKET_PATH = '__DAEMON_SOCKET_PATH__';
-const DAEMON_PROXY_PORT = parseInt('__DAEMON_PROXY_PORT__', 10) || 0;
 
 interface JsonRpcMessage {
   jsonrpc?: string;
@@ -114,20 +113,16 @@ function postTelemetry(socketPath: string, event: TelemetryEvent): void {
   }
 }
 
-function checkIpcReachable(socketPath: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = net.createConnection(socketPath);
-    const finish = (value: boolean) => {
-      socket.removeAllListeners();
-      socket.destroy();
-      resolve(value);
-    };
-
-    socket.setTimeout(400);
-    socket.on('connect', () => finish(true));
-    socket.on('error', () => finish(false));
-    socket.on('timeout', () => finish(false));
-  });
+function writeLocalLog(event: TelemetryEvent, ide: string, workspaceSlug: string, serverName: string): void {
+  try {
+    const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
+    const date = new Date(event.timestamp).toISOString().slice(0, 10); // YYYY-MM-DD
+    const logDir = `${home}/.myai/logs/${ide}/${workspaceSlug}/${date}`;
+    fs.mkdirSync(logDir, { recursive: true });
+    fs.appendFileSync(`${logDir}/${serverName}.jsonl`, JSON.stringify(event) + '\n', 'utf8');
+  } catch (error) {
+    process.stderr.write(`myai-wrapper: log write failed: ${String(error)}\n`);
+  }
 }
 
 function readJsonFile<T>(filePath: string): T | undefined {
@@ -141,7 +136,6 @@ function readJsonFile<T>(filePath: string): T | undefined {
 
 interface DaemonJson {
   pid: number;
-  proxyPort: number;
   socketPath: string;
   startedAt: number;
 }
@@ -286,9 +280,9 @@ async function main(): Promise<void> {
   const realUrl = getEnv(MYAI_REAL_URL);
   const realServer = getEnv(MYAI_REAL_SERVER);
 
-  // HTTP bridge mode: MCP entry was originally an HTTP server, now routed through daemon TCP proxy
+  // HTTP direct mode: MCP entry was originally an HTTP server
   if (realUrl && !realServer) {
-    await runHttpBridgeMode(ide, workspaceSlug, realUrl);
+    await runHttpDirectMode(ide, workspaceSlug, realUrl, DAEMON_SOCKET_PATH);
     return;
   }
 
@@ -301,25 +295,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Resolve daemon socket path: try baked-in constant first, fall back to daemon.json
-  let socketPath = DAEMON_SOCKET_PATH;
-  let telemetryEnabled = false;
-
-  if (socketPath && socketPath !== '__DAEMON_SOCKET_PATH__') {
-    telemetryEnabled = await checkIpcReachable(socketPath);
-  }
-
-  if (!telemetryEnabled) {
-    const daemonJson = readDaemonJson();
-    if (daemonJson?.socketPath) {
-      socketPath = daemonJson.socketPath;
-      telemetryEnabled = await checkIpcReachable(socketPath);
-    }
-  }
-
-  if (!telemetryEnabled) {
-    process.stderr.write('myai-wrapper: daemon IPC unavailable, running passthrough mode\n');
-  }
+  // Resolve daemon socket path: baked-in constant preferred, fall back to daemon.json
+  const socketPath = DAEMON_SOCKET_PATH === '__DAEMON_SOCKET_PATH__'
+    ? (readDaemonJson()?.socketPath ?? DAEMON_SOCKET_PATH)
+    : DAEMON_SOCKET_PATH;
 
   const child = spawn(real.command, real.args, {
     env: {
@@ -343,10 +322,6 @@ async function main(): Promise<void> {
   process.stdin.on('data', (chunk: Buffer) => {
     child.stdin.write(chunk);
 
-    if (!telemetryEnabled || !socketPath) {
-      return;
-    }
-
     const framedRequest = parseLengthPrefixedFrames(Buffer.concat([requestFramedRemainder, chunk]));
     requestFramedRemainder = framedRequest.rest;
     for (const message of framedRequest.messages) {
@@ -361,10 +336,6 @@ async function main(): Promise<void> {
   });
 
   child.stdout.on('data', (chunk: Buffer) => {
-    if (!telemetryEnabled || !socketPath) {
-      return;
-    }
-
     // Try framed parsing first because MCP commonly uses content-length framing.
     const framedBuffer = Buffer.concat([framedRemainder, chunk]);
     const framed = parseLengthPrefixedFrames(framedBuffer);
@@ -399,27 +370,25 @@ async function main(): Promise<void> {
 }
 
 /**
- * HTTP bridge mode: forward stdin JSON-RPC → daemon TCP proxy → stdout
- * Used when the original MCP entry was an HTTP server (MYAI_REAL_URL set, MYAI_REAL_SERVER absent)
+ * HTTP direct mode: forward stdin JSON-RPC → real HTTP server → stdout
+ * Used when the original MCP entry was an HTTP server (MYAI_REAL_URL set, MYAI_REAL_SERVER absent).
+ * Logs events locally and sends telemetry to daemon for live-stream fanout.
  */
-function runHttpBridgeMode(ide: string, workspaceSlug: string, realUrl: string): Promise<void> {
+async function runHttpDirectMode(
+  ide: string,
+  workspaceSlug: string,
+  realUrl: string,
+  socketPath: string,
+): Promise<void> {
+  const serverName = getEnv(MYAI_SERVER_NAME) ?? 'mcp';
+  let ndjsonRemainder = '';
+
   return new Promise((resolve) => {
-    const serverName = getEnv(MYAI_SERVER_NAME) ?? 'mcp';
-    const proxyPort = DAEMON_PROXY_PORT || (readDaemonJson()?.proxyPort ?? 0);
-
-    if (!proxyPort) {
-      process.stderr.write('myai-wrapper: HTTP bridge: no proxy port, running passthrough (stdin echo off)\n');
-      process.exit(1);
-      return;
-    }
-
-    let ndjsonRemainder = '';
-
     process.stdin.on('data', (chunk: Buffer) => {
       const ndjson = parseNewlineDelimited(ndjsonRemainder + chunk.toString('utf8'));
       ndjsonRemainder = ndjson.rest;
       for (const message of ndjson.messages) {
-        forwardToTcpProxy(message, serverName, realUrl, proxyPort, ide, workspaceSlug);
+        void handleHttpDirectMessage(message, serverName, realUrl, socketPath, ide, workspaceSlug);
       }
     });
 
@@ -430,48 +399,126 @@ function runHttpBridgeMode(ide: string, workspaceSlug: string, realUrl: string):
   });
 }
 
-function forwardToTcpProxy(
+async function handleHttpDirectMessage(
   message: JsonRpcMessage,
   serverName: string,
   realUrl: string,
-  proxyPort: number,
+  socketPath: string,
   ide: string,
   workspaceSlug: string,
-): void {
-  const body = JSON.stringify(message);
-  const options: http.RequestOptions = {
-    hostname: '127.0.0.1',
-    port: proxyPort,
-    path: `/${serverName}`,
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'content-length': Buffer.byteLength(body),
-      'x-upstream-url': realUrl,
-      'x-myai-ide': ide,
-      'x-myai-workspace-slug': workspaceSlug,
-    },
-    timeout: 30_000,
-  };
+): Promise<void> {
+  const now = Date.now();
+  const isToolCall = message.method === 'tools/call';
+  let eventId: string | undefined;
+  let startTime: number | undefined;
 
-  const req = http.request(options, (res) => {
-    const chunks: Buffer[] = [];
-    res.on('data', (c: Buffer) => chunks.push(c));
-    res.on('end', () => {
-      const responseText = Buffer.concat(chunks).toString('utf8');
-      process.stdout.write(responseText + '\n');
+  if (isToolCall) {
+    eventId = crypto.randomUUID();
+    startTime = now;
+    const startedEvent: TelemetryEvent = {
+      id: eventId,
+      type: 'tool_call_started',
+      timestamp: now,
+      toolName: message.params?.name,
+      serverName,
+      arguments: message.params?.arguments,
+      ide,
+      workspaceSlug,
+    };
+    writeLocalLog(startedEvent, ide, workspaceSlug, serverName);
+    postTelemetry(socketPath, startedEvent);
+  }
+
+  try {
+    const responseText = await forwardDirectHttp(realUrl, JSON.stringify(message));
+    process.stdout.write(responseText + '\n');
+
+    if (isToolCall && eventId !== undefined && startTime !== undefined) {
+      let parsed: { result?: unknown; error?: { message?: string } } | undefined;
+      try { parsed = JSON.parse(responseText) as typeof parsed; } catch { /* ignore */ }
+
+      const finishTime = Date.now();
+      const durationMs = finishTime - startTime;
+      const finishedEvent: TelemetryEvent = parsed?.error ? {
+        id: eventId,
+        type: 'tool_call_failed',
+        timestamp: finishTime,
+        toolName: message.params?.name,
+        serverName,
+        error: String(parsed.error.message ?? 'Unknown error'),
+        durationMs,
+        ide,
+        workspaceSlug,
+      } : {
+        id: eventId,
+        type: 'tool_call_completed',
+        timestamp: finishTime,
+        toolName: message.params?.name,
+        serverName,
+        result: parsed?.result,
+        durationMs,
+        ide,
+        workspaceSlug,
+      };
+      writeLocalLog(finishedEvent, ide, workspaceSlug, serverName);
+      postTelemetry(socketPath, finishedEvent);
+    }
+  } catch (err) {
+    process.stderr.write(`myai-wrapper: HTTP direct forward error: ${String(err)}\n`);
+    const rpcError = JSON.stringify({
+      jsonrpc: '2.0',
+      id: message.id ?? null,
+      error: { code: -32000, message: String(err) },
     });
-  });
-
-  req.on('error', (err) => {
-    process.stderr.write(`myai-wrapper: bridge forward error: ${err.message}\n`);
-    // Write JSON-RPC error back to stdout so the caller gets a response
-    const rpcError = JSON.stringify({ jsonrpc: '2.0', id: message.id ?? null, error: { code: -32000, message: String(err) } });
     process.stdout.write(rpcError + '\n');
-  });
 
-  req.write(body);
-  req.end();
+    if (isToolCall && eventId !== undefined && startTime !== undefined) {
+      const failedEvent: TelemetryEvent = {
+        id: eventId,
+        type: 'tool_call_failed',
+        timestamp: Date.now(),
+        toolName: message.params?.name,
+        serverName,
+        error: String(err),
+        durationMs: Date.now() - startTime,
+        ide,
+        workspaceSlug,
+      };
+      writeLocalLog(failedEvent, ide, workspaceSlug, serverName);
+      postTelemetry(socketPath, failedEvent);
+    }
+  }
+}
+
+function forwardDirectHttp(url: string, body: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const isHttps = parsed.protocol === 'https:';
+    const transport = isHttps ? https : http;
+    const defaultPort = isHttps ? 443 : 80;
+
+    const options: http.RequestOptions = {
+      hostname: parsed.hostname,
+      port: parsed.port ? Number.parseInt(parsed.port, 10) : defaultPort,
+      path: parsed.pathname + parsed.search,
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(body),
+        accept: 'application/json',
+      },
+    };
+
+    const req = transport.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c: Buffer) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    });
+    req.on('error', reject);
+    req.setTimeout(30_000, () => req.destroy(new Error('HTTP direct forward timeout')));
+    req.write(body);
+    req.end();
+  });
 }
 
 function handleJsonRpc(
@@ -483,11 +530,14 @@ function handleJsonRpc(
   workspaceSlug?: string,
 ): void {
   const now = Date.now();
+  const resolvedIde = ide ?? 'unknown';
+  const resolvedWorkspaceSlug = workspaceSlug ?? 'unknown';
+  const resolvedServerName = serverName ?? 'unknown';
 
   if (message.method === 'tools/call') {
     const requestId = message.id;
     const eventId = crypto.randomUUID();
-    postTelemetry(socketPath, {
+    const startedEvent: TelemetryEvent = {
       id: eventId,
       type: 'tool_call_started',
       timestamp: now,
@@ -496,7 +546,9 @@ function handleJsonRpc(
       arguments: message.params?.arguments,
       ide,
       workspaceSlug,
-    });
+    };
+    writeLocalLog(startedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
+    postTelemetry(socketPath, startedEvent);
 
     if (requestId !== undefined && requestId !== null) {
       trackedCalls.set(String(requestId), {
@@ -521,7 +573,7 @@ function handleJsonRpc(
   trackedCalls.delete(String(message.id));
 
   if (message.error !== undefined) {
-    postTelemetry(socketPath, {
+    const failedEvent: TelemetryEvent = {
       id: tracked.eventId,
       type: 'tool_call_failed',
       timestamp: now,
@@ -531,11 +583,13 @@ function handleJsonRpc(
       durationMs: now - tracked.startedAt,
       ide,
       workspaceSlug,
-    });
+    };
+    writeLocalLog(failedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
+    postTelemetry(socketPath, failedEvent);
     return;
   }
 
-  postTelemetry(socketPath, {
+  const completedEvent: TelemetryEvent = {
     id: tracked.eventId,
     type: 'tool_call_completed',
     timestamp: now,
@@ -545,7 +599,9 @@ function handleJsonRpc(
     durationMs: now - tracked.startedAt,
     ide,
     workspaceSlug,
-  });
+  };
+  writeLocalLog(completedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
+  postTelemetry(socketPath, completedEvent);
 }
 
 main().catch((error) => {

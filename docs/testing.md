@@ -273,15 +273,15 @@ Expected output ends with `All lifecycle tests passed ✓` and the daemon proces
 
 ---
 
-### `test-daemon-proxy.mjs` — Daemon TCP MCP proxy
+### `test-proxy.mjs` — Daemon IPC and session clear
 
-Starts the daemon, registers an instance, subscribes to its SSE stream, spins up a mock MCP HTTP server, and routes a `tools/call` through the daemon's TCP proxy using the `x-upstream-url` header. Asserts the HTTP response is correct and that a telemetry event was broadcast over SSE.
+Starts the daemon, registers an instance, subscribes to its SSE stream, posts a telemetry event, verifies SSE broadcast, tests heartbeat, and verifies that `POST /internal/clear` broadcasts a `session_cleared` event.
 
 ```bash
-node scripts/test-daemon-proxy.mjs
+node scripts/test-proxy.mjs
 ```
 
-Expected output ends with `PASS test-daemon-proxy`
+Expected output ends with `All tests passed ✓`
 
 ---
 

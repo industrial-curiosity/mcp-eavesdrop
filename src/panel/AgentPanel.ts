@@ -16,28 +16,20 @@ export class AgentPanel {
 
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
-  private _relayPort: number;
   private readonly _disposables: vscode.Disposable[] = [];
 
   // ---------------------------------------------------------------------------
   // Static factory
   // ---------------------------------------------------------------------------
 
-  public static createOrShow(extensionUri: vscode.Uri, relayPort: number): void {
+  public static createOrShow(extensionUri: vscode.Uri): void {
     const column = vscode.window.activeTextEditor
       ? vscode.ViewColumn.Beside
       : vscode.ViewColumn.One;
 
     if (AgentPanel.currentPanel) {
-      if (AgentPanel.currentPanel._relayPort !== relayPort) {
-        // Port changed — dispose and recreate so portMapping stays correct
-        AgentPanel.currentPanel._panel.dispose();
-        // currentPanel is cleared by _dispose via onDidDispose
-      } else {
-        AgentPanel.currentPanel._panel.reveal(column);
-        AgentPanel.currentPanel._panel.webview.postMessage({ type: 'init', relayPort });
-        return;
-      }
+      AgentPanel.currentPanel._panel.reveal(column);
+      return;
     }
 
     const panel = vscode.window.createWebviewPanel(
@@ -48,11 +40,10 @@ export class AgentPanel {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'dist')],
-        portMapping: [{ webviewPort: relayPort, extensionHostPort: relayPort }],
       },
     );
 
-    AgentPanel.currentPanel = new AgentPanel(panel, extensionUri, relayPort);
+    AgentPanel.currentPanel = new AgentPanel(panel, extensionUri);
   }
 
   // ---------------------------------------------------------------------------
@@ -62,11 +53,9 @@ export class AgentPanel {
   private constructor(
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
-    relayPort: number,
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
-    this._relayPort = relayPort;
 
     this._panel.title = 'AI Agent Monitor';
     this._panel.webview.html = this._buildHtml(this._panel.webview);
@@ -109,17 +98,28 @@ export class AgentPanel {
     const logsDir = path.join(os.homedir(), '.myai', 'logs');
     const events: unknown[] = [];
     try {
+      // Structure: <logsDir>/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl
       const ideDirs = fs.readdirSync(logsDir, { withFileTypes: true })
         .filter(d => d.isDirectory())
         .map(d => path.join(logsDir, d.name));
       for (const ideDir of ideDirs) {
-        const logFiles = fs.readdirSync(ideDir).filter(f => f.endsWith('.jsonl'));
-        for (const logFile of logFiles) {
-          const content = fs.readFileSync(path.join(ideDir, logFile), 'utf8');
-          for (const line of content.split('\n')) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-            try { events.push(JSON.parse(trimmed)); } catch { /* skip malformed */ }
+        const workspaceDirs = fs.readdirSync(ideDir, { withFileTypes: true })
+          .filter(d => d.isDirectory())
+          .map(d => path.join(ideDir, d.name));
+        for (const wsDir of workspaceDirs) {
+          const dateDirs = fs.readdirSync(wsDir, { withFileTypes: true })
+            .filter(d => d.isDirectory())
+            .map(d => path.join(wsDir, d.name));
+          for (const dateDir of dateDirs) {
+            const logFiles = fs.readdirSync(dateDir).filter(f => f.endsWith('.jsonl'));
+            for (const logFile of logFiles) {
+              const content = fs.readFileSync(path.join(dateDir, logFile), 'utf8');
+              for (const line of content.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                try { events.push(JSON.parse(trimmed)); } catch { /* skip malformed */ }
+              }
+            }
           }
         }
       }

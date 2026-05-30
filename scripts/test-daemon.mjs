@@ -161,9 +161,9 @@ log(`Connections: ${conns.body.total} ✓`);
 // Subscribe to SSE on instance-1 and post a telemetry event (fire and forget)
 const ssePromise = subscribeSse(DAEMON_SOCKET, 'test-instance-1', 5000);
 
-// Read daemon.json for proxyPort
+// Read daemon.json to verify pid and socketPath
 const daemonJson = JSON.parse(await readFile(DAEMON_JSON, 'utf8'));
-log(`Proxy port: ${daemonJson.proxyPort}`);
+log(`Daemon pid: ${daemonJson.pid}, socket: ${daemonJson.socketPath}`);
 
 // Post telemetry to daemon via telemetry endpoint
 const eventId = 'test-event-' + Date.now();

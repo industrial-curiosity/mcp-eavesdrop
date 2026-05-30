@@ -16,7 +16,6 @@ import { deployWrapper } from './wrapper-deploy';
 interface MonitoringCommandOptions {
   ide: string;
   workspaceSlugProvider: () => string;
-  daemonProxyPortProvider: () => number | undefined;
 }
 
 function workspaceFolderPath(): string | undefined {
@@ -64,13 +63,7 @@ async function enableMonitoring(
     return;
   }
 
-  const proxyPort = options.daemonProxyPortProvider();
-  if (proxyPort === undefined) {
-    vscode.window.showErrorMessage('MyAI: Daemon is not running, cannot enable monitoring yet.');
-    return;
-  }
-
-  const deploy = deployWrapper(context, proxyPort);
+  const deploy = deployWrapper(context);
   const extensionDir = context.extension.extensionPath;
   let totalWrapped = 0;
 
