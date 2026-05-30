@@ -19,9 +19,9 @@ The panel SHALL render a scrolling list of `McpToolEvent` entries showing tool n
 
 #### Scenario: Tool call with conversation ID
 - **WHEN** a `tool_call_started` event includes a `conversationId`
-- **THEN** the panel SHALL display a badge showing the first 8 characters of `conversationId`
+- **THEN** the panel SHALL display a badge showing the full `conversationId` — truncation is forbidden
 - **WHEN** the previous event in the log had a different `conversationId`
-- **THEN** the panel SHALL render a divider line between the two entries labelled with the short conversation ID
+- **THEN** the panel SHALL render a divider line between the two entries labelled with the full `conversationId`
 
 #### Scenario: Tool call without conversation ID
 - **WHEN** a `tool_call_started` event has no `conversationId`

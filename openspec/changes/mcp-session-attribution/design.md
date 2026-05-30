@@ -16,13 +16,15 @@ The stdio wrapper currently discards `params._meta` entirely. The telemetry pipe
 
 - Capture `vscode.conversationId` and `vscode.requestId` at the wrapper layer with zero risk to the relay.
 - Thread both fields through the full telemetry pipeline to the panel.
-- Display a short conversation label per tool call entry in the panel; visually separate runs from different sessions.
+- Display the full `conversationId` (no truncation) per tool call entry in the panel; visually separate runs from different sessions.
+- Preserve the entire `_meta` object in the `JsonRpcMessage` type — prefer capturing too much over too little. New fields VS Code adds in future should be available without a type change.
 
 **Non-Goals:**
 
 - Resolving conversation IDs to human-readable session titles.
 - Any use of proposed/private VS Code APIs.
-- Cursor-specific divergence — assumed identical wire format.
+- Cursor-specific verification — VS Code is the implementation target; Cursor support is deferred.
+- Capturing `_meta` fields from the HTTP bridge code path (`runHttpBridgeMode` / `forwardToTcpProxy`) — that path forwards the raw JSON-RPC body to the daemon TCP proxy and does not run `handleJsonRpc`. Session attribution for HTTP-bridged servers is out of scope for this change.
 
 ## Decisions
 

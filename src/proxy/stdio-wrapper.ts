@@ -487,9 +487,6 @@ function handleJsonRpc(
   if (message.method === 'tools/call') {
     const requestId = message.id;
     const eventId = crypto.randomUUID();
-    process.stderr.write(
-      `myai-debug: _meta=${JSON.stringify(message.params?._meta ?? null)}\n`
-    );
     postTelemetry(socketPath, {
       id: eventId,
       type: 'tool_call_started',

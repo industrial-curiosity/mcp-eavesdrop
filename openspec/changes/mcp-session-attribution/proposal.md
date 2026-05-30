@@ -6,7 +6,7 @@ Every MCP `tools/call` message VS Code (and Cursor) sends already contains `_met
 
 - The stdio wrapper reads `_meta['vscode.conversationId']` and `_meta['vscode.requestId']` from intercepted `tools/call` messages and includes them in telemetry events.
 - `McpToolEvent` gains optional `conversationId` and `requestId` fields.
-- The panel labels each tool call entry with a short conversation identifier and groups consecutive calls from the same session visually.
+- The panel labels each tool call entry with the full `conversationId` and groups consecutive calls from the same session visually — identifiers are never truncated.
 
 ## Non-goals
 

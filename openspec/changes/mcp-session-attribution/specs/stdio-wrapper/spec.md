@@ -3,6 +3,10 @@
 ### Requirement: Wrapper taps JSON-RPC stream and sends telemetry to proxy
 The wrapper SHALL parse the stdio byte stream for complete MCP JSON-RPC messages and POST `tool_call_started`, `tool_call_completed`, and `tool_call_failed` events to the daemon's Unix socket at `POST /telemetry`. Each event SHALL include `ide`, `workspaceSlug`, `conversationId`, and `requestId` fields. `ide` and `workspaceSlug` are sourced from environment variables. `conversationId` and `requestId` are extracted from `params._meta['vscode.conversationId']` and `params._meta['vscode.requestId']` on the `tools/call` message. All four fields are optional — absence SHALL NOT block telemetry. Telemetry SHALL be fire-and-forget — failures MUST NOT interrupt the stdio relay.
 
+The `_meta` field on `JsonRpcMessage.params` SHALL be typed as `Record<string, unknown>` — it MUST NOT be narrowed to only the currently known keys. This ensures future `_meta` fields added by VS Code are preserved and available without requiring a type change. `conversationId` and `requestId` are read by key access; all other fields are forwarded as-is.
+
+**Scope note:** This requirement applies only to the stdio relay path (`handleJsonRpc`). The HTTP bridge path (`runHttpBridgeMode` / `forwardToTcpProxy`) forwards the raw JSON-RPC body to the daemon TCP proxy and does not invoke `handleJsonRpc`. Session attribution for HTTP-bridged servers is out of scope for this change.
+
 #### Scenario: Tool call intercepted with session metadata
 - **WHEN** a complete `{"method": "tools/call", ...}` JSON-RPC message is detected in the stream and `_meta['vscode.conversationId']` is present
 - **THEN** the wrapper SHALL POST a `tool_call_started` event including `conversationId` and `requestId` alongside `ide` and `workspaceSlug`

@@ -16,7 +16,7 @@
 ## 3. Panel — display
 
 - [ ] 3.1 Update the webview event type to include `conversationId?: string` and `requestId?: string`
-- [ ] 3.2 Render a short badge (first 8 chars of `conversationId`) on each tool call entry when the field is present
+- [ ] 3.2 Render a badge showing the full `conversationId` on each tool call entry when the field is present — do NOT truncate
 - [ ] 3.3 Insert a labelled session-change divider between entries that have a different `conversationId` than the previous entry
 - [ ] 3.4 Ensure entries without `conversationId` render without badge or divider (no regression)
 
