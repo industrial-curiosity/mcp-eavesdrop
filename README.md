@@ -62,18 +62,25 @@ Events carry attribution fields for filtering and display:
 
 - `ide` — which IDE initiated the call (e.g. `vscode`, `cursor`)
 - `workspaceSlug` — the workspace the call came from
-- `conversationId` — the VS Code chat session that triggered the call (present only for calls originating from a chat session; absent otherwise)
-
-The panel displays a color-coded badge per conversation, making it easy to distinguish which chat session drove which tool calls.
+- `conversationId` — the VS Code chat session that triggered the call (captured on the event type; not currently rendered in the panel)
 
 ### WebView Panel
 
-A VS Code WebView panel renders the live activity feed and historical session log. It shows:
+A VS Code WebView panel renders the live activity feed and historical session log. The panel layout has two columns: a connections sidebar on the left and a main content area on the right.
 
-- Which tool is currently executing (with a spinner)
-- A timeline of all tool calls in the current session
-- Color-coded conversation badges for calls originating from VS Code chat sessions
-- Expandable detail for each call: arguments, response, duration, status
+The main content area contains:
+
+- A **filter bar** with four controls:
+  - **Tool name** — text search for substring matches on tool names (case-insensitive)
+  - **Server** — select to show calls from a specific MCP server (populated dynamically as events arrive)
+  - **Status** — filter by call status: All, In-progress, Completed, or Failed
+  - **Time range** — filter by recency: All, Last hour, or Today
+- A **log** showing the tool call timeline:
+  - Which tool is currently executing (with a spinner)
+  - A timeline of all tool calls in the current session
+  - Expandable detail for each call: arguments, response, duration, status, and `meta` when present
+
+The connections sidebar shows all currently connected IDE windows. Each connection has a checkbox to show or hide tool calls from that window. This filter state persists in `localStorage` across panel reloads. Filter bar state (tool name, server, status, time) resets each time the panel opens.
 
 ## Compatibility
 

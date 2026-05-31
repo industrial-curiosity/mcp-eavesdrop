@@ -48,85 +48,6 @@ interface Connection {
 
 const vscode = acquireVsCodeApi();
 
-// ---------------------------------------------------------------------------
-// Conversation color assignment
-// ---------------------------------------------------------------------------
-
-const INITIAL_PALETTE = [
-  '#3B82F6', // blue
-  '#8B5CF6', // violet
-  '#10B981', // emerald
-  '#EA580C', // orange
-  '#EF4444', // red
-  '#06B6D4', // cyan
-  '#EC4899', // pink
-  '#0D9488', // teal
-];
-
-/** Ordered working palette — extended by midpoint-doubling when exhausted */
-const colorPalette: string[] = [...INITIAL_PALETTE];
-/** Tracks which palette slots are occupied (index → true) */
-const occupiedSlots = new Set<number>();
-/** Stable map from conversationId → assigned CSS color */
-const conversationColors = new Map<string, string>();
-
-function parseHex(hex: string): [number, number, number] {
-  const n = Number.parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
-}
-
-function toHex(r: number, g: number, b: number): string {
-  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
-}
-
-function midColor(a: string, b: string): string {
-  const [ar, ag, ab] = parseHex(a);
-  const [br, bg, bb] = parseHex(b);
-  return toHex(
-    Math.floor((ar + br) / 2),
-    Math.floor((ag + bg) / 2),
-    Math.floor((ab + bb) / 2),
-  );
-}
-
-function extendPalette(): void {
-  const current = [...colorPalette];
-  const extended: string[] = [];
-  for (let i = 0; i < current.length; i++) {
-    extended.push(current[i]);
-    extended.push(midColor(current[i], current[(i + 1) % current.length]));
-  }
-  colorPalette.length = 0;
-  colorPalette.push(...extended);
-}
-
-function charCodeSum(s: string): number {
-  let sum = 0;
-  for (let i = 0; i < s.length; i++) sum += s.charCodeAt(i);
-  return sum;
-}
-
-function getConversationColor(conversationId: string): string {
-  const existing = conversationColors.get(conversationId);
-  if (existing !== undefined) return existing;
-
-  // Extend palette until at least one free slot exists
-  while (occupiedSlots.size >= colorPalette.length) {
-    extendPalette();
-  }
-
-  const start = charCodeSum(conversationId) % colorPalette.length;
-  let slot = start;
-  while (occupiedSlots.has(slot)) {
-    slot = (slot + 1) % colorPalette.length;
-  }
-
-  occupiedSlots.add(slot);
-  const color = colorPalette[slot];
-  conversationColors.set(conversationId, color);
-  return color;
-}
-
 
 
 /** Track live DOM entries by event id for in-place updates */
@@ -136,6 +57,10 @@ const logContainer = document.getElementById('log') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
 const clearBtn = document.getElementById('clearBtn') as HTMLButtonElement;
 const connectionsEl = document.getElementById('connections') as HTMLElement | null;
+const filterToolEl = document.getElementById('filterTool') as HTMLInputElement;
+const filterServerEl = document.getElementById('filterServer') as HTMLSelectElement;
+const filterStatusEl = document.getElementById('filterStatus') as HTMLSelectElement;
+const filterTimeEl = document.getElementById('filterTime') as HTMLSelectElement;
 
 // Active filter: key = "ide/workspaceSlug", value = true (visible) | false (hidden)
 const filterState = new Map<string, boolean>();
@@ -159,12 +84,46 @@ function saveFilters(): void {
   } catch { /* ignore */ }
 }
 
-function isVisible(event: McpToolEvent): boolean {
-  if (filterState.size === 0) return true;
+function isTimeVisible(timestamp: number, timeFilter: string): boolean {
+  if (!timeFilter) return true;
+  if (!timestamp) return false;
+  const now = Date.now();
+  if (timeFilter === 'hour') return timestamp >= now - 60 * 60 * 1000;
+  if (timeFilter === 'today') {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return timestamp >= start.getTime();
+  }
+  return true;
+}
+
+function isVisible(event: McpToolEvent, entryEl?: HTMLElement): boolean {
+  // IDE/workspace filter
   const key = `${event.ide ?? ''}/${event.workspaceSlug ?? ''}`;
-  // If a filter key for this connection is present and false, hide it
-  const state = filterState.get(key);
-  return state !== false;
+  if (filterState.get(key) === false) return false;
+
+  // Tool name filter
+  const toolFilter = filterToolEl.value.trim().toLowerCase();
+  if (toolFilter && !(event.toolName ?? '').toLowerCase().includes(toolFilter)) return false;
+
+  // Server name filter
+  const serverFilter = filterServerEl.value;
+  if (serverFilter && event.serverName !== serverFilter) return false;
+
+  // Status filter (checked against entry DOM class when available, else new entries are in-progress)
+  const statusFilter = filterStatusEl.value;
+  if (statusFilter) {
+    if (entryEl) {
+      if (!entryEl.classList.contains(statusFilter)) return false;
+    } else if (statusFilter !== 'in-progress') {
+      return false;
+    }
+  }
+
+  // Time range filter
+  if (!isTimeVisible(event.timestamp, filterTimeEl.value)) return false;
+
+  return true;
 }
 
 loadFilters();
@@ -254,12 +213,34 @@ function renderConnections(connections: Connection[]): void {
   }
 }
 
+function addServerOption(serverName: string): void {
+  if (!serverName) return;
+  for (let i = 0; i < filterServerEl.options.length; i++) {
+    if (filterServerEl.options[i].value === serverName) return;
+  }
+  const opt = document.createElement('option');
+  opt.value = serverName;
+  opt.textContent = serverName;
+  filterServerEl.appendChild(opt);
+}
+
 function reapplyFilters(): void {
-  for (const [id, el] of entries) {
-    const ideAttr = el.dataset['ide'] ?? '';
-    const slugAttr = el.dataset['workspaceSlug'] ?? '';
-    const key = `${ideAttr}/${slugAttr}`;
-    el.style.display = filterState.get(key) === false ? 'none' : '';
+  const toolFilter = filterToolEl.value.trim().toLowerCase();
+  const serverFilter = filterServerEl.value;
+  const statusFilter = filterStatusEl.value;
+  const timeFilter = filterTimeEl.value;
+
+  for (const [, el] of entries) {
+    const key = `${el.dataset['ide'] ?? ''}/${el.dataset['workspaceSlug'] ?? ''}`;
+    const ideVisible = filterState.get(key) !== false;
+    const toolName = (el.dataset['toolName'] ?? '').toLowerCase();
+    const toolVisible = !toolFilter || toolName.includes(toolFilter);
+    const serverName = el.dataset['serverName'] ?? '';
+    const serverVisible = !serverFilter || serverName === serverFilter;
+    const statusVisible = !statusFilter || el.classList.contains(statusFilter);
+    const timestamp = Number(el.dataset['timestamp'] ?? '0');
+    const timeVisible = isTimeVisible(timestamp, timeFilter);
+    el.style.display = (ideVisible && toolVisible && serverVisible && statusVisible && timeVisible) ? '' : 'none';
   }
 }
 
@@ -290,6 +271,10 @@ function handleEvent(event: McpToolEvent, isHistory: boolean): void {
       const entry = createStartedEntry(event);
       entry.dataset['ide'] = event.ide ?? '';
       entry.dataset['workspaceSlug'] = event.workspaceSlug ?? '';
+      entry.dataset['toolName'] = event.toolName ?? '';
+      entry.dataset['serverName'] = event.serverName ?? '';
+      entry.dataset['timestamp'] = String(event.timestamp);
+      if (event.serverName) addServerOption(event.serverName);
       if (!isVisible(event)) entry.style.display = 'none';
       entries.set(event.id, entry);
       logContainer.appendChild(entry);
@@ -345,14 +330,6 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
     header.appendChild(sourceEl);
   }
 
-  if (event.conversationId) {
-    const badgeEl = document.createElement('span');
-    badgeEl.className = 'conv-badge';
-    badgeEl.textContent = event.conversationId;
-    badgeEl.style.backgroundColor = getConversationColor(event.conversationId);
-    header.appendChild(badgeEl);
-  }
-
   header.appendChild(statusIcon);
   header.appendChild(nameEl);
   header.appendChild(serverEl);
@@ -362,6 +339,10 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
 
   if (event.arguments !== undefined) {
     details.appendChild(createDetailsSection('Arguments', event.arguments));
+  }
+
+  if (event.meta && Object.keys(event.meta).length > 0) {
+    details.appendChild(createDetailsSection('Meta', event.meta));
   }
 
   div.appendChild(header);
@@ -389,6 +370,11 @@ function updateCompleted(entry: HTMLElement, event: McpToolEvent): void {
     const details = entry.querySelector('.entry-details') as HTMLElement;
     details.appendChild(createDetailsSection('Result', event.result));
   }
+  if (event.meta && Object.keys(event.meta).length > 0) {
+    const details = entry.querySelector('.entry-details') as HTMLElement;
+    details.appendChild(createDetailsSection('Meta', event.meta));
+  }
+  reapplyFilters();
 }
 
 function updateFailed(entry: HTMLElement, event: McpToolEvent): void {
@@ -415,6 +401,7 @@ function updateFailed(entry: HTMLElement, event: McpToolEvent): void {
     const details = entry.querySelector('.entry-details') as HTMLElement;
     details.appendChild(createDetailsSection('Error', event.error));
   }
+  reapplyFilters();
 }
 
 function createDetailsSection(label: string, value: unknown): HTMLElement {
@@ -452,5 +439,10 @@ clearBtn.addEventListener('click', () => {
   clearLog();
   vscode.postMessage({ type: 'clearSession' });
 });
+
+filterToolEl.addEventListener('input', () => reapplyFilters());
+filterServerEl.addEventListener('change', () => reapplyFilters());
+filterStatusEl.addEventListener('change', () => reapplyFilters());
+filterTimeEl.addEventListener('change', () => reapplyFilters());
 
 // Suppress unused warning for renderConnections — exported for potential future use

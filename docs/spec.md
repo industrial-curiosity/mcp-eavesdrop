@@ -148,24 +148,31 @@ interface McpToolEvent {
 **Layout:**
 
 ```text
-┌─────────────────────────────────────┐
-│  AI Agent Monitor          [Clear]  │
-├─────────────────────────────────────┤
-│  ● file_search           12ms  ✓    │  ← completed
-│  ● run_in_terminal       ...   ⟳    │  ← in progress (spinner)
-│  ● grep_search           8ms   ✓    │
-│    ▼ Arguments                      │  ← expandable
-│      { "query": "activation" }      │
-│    ▼ Result                         │
-│      [ "src/extension.ts" ]         │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  AI Agent Monitor                              [Clear]        │
+├────────────────────┬─────────────────────────────────────────┤
+│  Connections       │  [tool name…] [All servers▾] [All▾] [All▾] │
+│  sidebar           ├─────────────────────────────────────────┤
+│  ☑ vscode:ws1      │  ● file_search           12ms  ✓        │
+│  ☐ cursor:ws2      │  ● run_in_terminal       ...   ⟳        │
+│                    │  ● grep_search           8ms   ✓        │
+│                    │    ▼ Arguments                           │
+│                    │      { "query": "activation" }           │
+│                    │    ▼ Result                              │
+│                    │      [ "src/extension.ts" ]              │
+└────────────────────┴─────────────────────────────────────────┘
 ```
 
 **UI requirements:**
 
+- Panel body is a two-column flex layout: `.connections-sidebar` (180px fixed) and `.main-content` (remaining space)
+- The connections sidebar renders all active daemon connections, each with a checkbox to include/exclude that connection's events; checkbox state is persisted in `localStorage`
+- Filter bar sits above the log; contains four controls: tool name text input, server select, status select (All / In-progress / Completed / Failed), time range select (All / Last hour / Today)
+- All four filter controls apply simultaneously (AND logic) via `reapplyFilters()`
+- Filter bar state is in-memory only and resets when the panel is reopened
 - In-progress tools display a spinner and no duration until completed
 - Failed tools display in red with the error message
-- Each entry is expandable to show full arguments and result (JSON, pretty-printed)
+- Each entry is expandable to show full arguments, result, and `meta` when present (JSON, pretty-printed)
 - Session log scrolls to latest entry automatically
 - "Clear" button emits `clearSession` to host and resets local state
 - Uses VS Code's CSS custom properties (`--vscode-*`) for full theme compatibility

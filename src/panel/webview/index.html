@@ -16,7 +16,29 @@
       <span id="status" class="status" aria-live="polite"></span>
       <button id="clearBtn" class="clear-btn" type="button">Clear</button>
     </div>
-    <div id="log" class="log-container" role="log" aria-label="Tool call log"></div>
+    <div class="main-layout">
+      <div id="connections" class="connections-sidebar"></div>
+      <div class="main-content">
+        <div id="filterBar" class="filter-bar">
+          <input id="filterTool" type="text" placeholder="Tool name&hellip;" />
+          <select id="filterServer">
+            <option value="">All servers</option>
+          </select>
+          <select id="filterStatus">
+            <option value="">All</option>
+            <option value="in-progress">In-progress</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+          </select>
+          <select id="filterTime">
+            <option value="">All</option>
+            <option value="hour">Last hour</option>
+            <option value="today">Today</option>
+          </select>
+        </div>
+        <div id="log" class="log-container" role="log" aria-label="Tool call log"></div>
+      </div>
+    </div>
     <script nonce="{{nonce}}" src="{{scriptUri}}"></script>
   </body>
 </html>
