@@ -121,8 +121,124 @@ const completed = telemetryEvents.find((event) => event.type === 'tool_call_comp
 
 assert.ok(started, 'expected tool_call_started telemetry');
 assert.ok(completed, 'expected tool_call_completed telemetry');
+assert.equal(started.conversationId, undefined, 'tool_call_started without _meta should have no conversationId');
+assert.equal(started.requestId, undefined, 'tool_call_started without _meta should have no requestId');
 
 console.log('PASS test-wrapper (stdio mode)');
+
+// ---------------------------------------------------------------------------
+// Stdio mode — _meta session attribution
+// Second wrapper process; this time the request includes _meta with VS Code IDs.
+// ---------------------------------------------------------------------------
+
+const metaTelemetryEvents = [];
+const metaTelemetrySocket = path.join(tmp, 'meta-proxy.sock');
+const metaTelemetryServer = http.createServer((req, res) => {
+  if (req.method === 'POST' && req.url === '/telemetry') {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => {
+      metaTelemetryEvents.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{}');
+    });
+    return;
+  }
+  res.writeHead(404);
+  res.end('not found');
+});
+await new Promise((resolve, reject) => {
+  metaTelemetryServer.listen(metaTelemetrySocket, () => resolve());
+  metaTelemetryServer.on('error', reject);
+});
+
+const metaWrapperPath = path.join(tmp, 'stdio-wrapper-meta-test.js');
+let metaWrapperSrc = fs.readFileSync(wrapperPath, 'utf8');
+metaWrapperSrc = metaWrapperSrc.replace('__DAEMON_SOCKET_PATH__', metaTelemetrySocket);
+fs.writeFileSync(metaWrapperPath, metaWrapperSrc, 'utf8');
+
+const metaWrapper = spawn('node', [metaWrapperPath], {
+  cwd: process.cwd(),
+  env: {
+    ...process.env,
+    MYAI_REAL_SERVER: JSON.stringify({ command: 'node', args: [mockServerPath], env: {} }),
+    MYAI_EXT_DIR: extDir,
+    MYAI_CONFIG_PATH: configPath,
+    MYAI_SERVER_NAME: 'mock',
+  },
+  stdio: ['pipe', 'pipe', 'pipe'],
+});
+metaWrapper.stderr.on('data', (c) => process.stderr.write('[meta-wrapper] ' + c.toString('utf8')));
+
+const metaRequest = JSON.stringify({
+  jsonrpc: '2.0',
+  id: 10,
+  method: 'tools/call',
+  params: {
+    name: 'attributed_tool',
+    arguments: { x: 1 },
+    _meta: {
+      'vscode.conversationId': 'conv-abc-123',
+      'vscode.requestId': 'req-xyz-456',
+    },
+  },
+}) + '\n';
+
+let metaStdout = '';
+metaWrapper.stdout.on('data', (c) => { metaStdout += c.toString('utf8'); });
+metaWrapper.stdin.write(metaRequest);
+
+await new Promise((resolve, reject) => {
+  const deadline = Date.now() + 5000;
+  const interval = setInterval(() => {
+    if (metaStdout.includes('"result"')) { clearInterval(interval); resolve(); return; }
+    if (Date.now() > deadline) { clearInterval(interval); reject(new Error('Timed out waiting for meta-wrapper stdout response')); }
+  }, 50);
+});
+
+// Send a second request without _meta to verify absence
+const noMetaRequest = JSON.stringify({
+  jsonrpc: '2.0',
+  id: 11,
+  method: 'tools/call',
+  params: {
+    name: 'plain_tool',
+    arguments: {},
+  },
+}) + '\n';
+metaWrapper.stdin.write(noMetaRequest);
+
+await new Promise((resolve, reject) => {
+  const deadline = Date.now() + 5000;
+  const interval = setInterval(() => {
+    if (metaTelemetryEvents.filter(e => e.type === 'tool_call_started').length >= 2) { clearInterval(interval); resolve(); return; }
+    if (Date.now() > deadline) { clearInterval(interval); reject(new Error('Timed out waiting for second meta-wrapper telemetry event')); }
+  }, 50);
+});
+
+metaWrapper.stdin.end();
+await new Promise((resolve) => metaWrapper.on('exit', () => resolve()));
+metaTelemetryServer.close();
+
+const metaStarted = metaTelemetryEvents.find((e) => e.type === 'tool_call_started' && e.toolName === 'attributed_tool');
+const metaCompleted = metaTelemetryEvents.find((e) => e.type === 'tool_call_completed' && e.toolName === 'attributed_tool');
+const noMetaStarted = metaTelemetryEvents.find((e) => e.type === 'tool_call_started' && e.toolName === 'plain_tool');
+
+assert.ok(metaStarted, 'expected tool_call_started for attributed_tool');
+assert.equal(metaStarted.conversationId, 'conv-abc-123', 'tool_call_started should carry conversationId from _meta');
+assert.equal(metaStarted.requestId, 'req-xyz-456', 'tool_call_started should carry requestId from _meta');
+assert.deepEqual(metaStarted.meta, { 'vscode.conversationId': 'conv-abc-123', 'vscode.requestId': 'req-xyz-456' }, 'tool_call_started should carry full _meta as meta');
+assert.ok(metaCompleted, 'expected tool_call_completed for attributed_tool');
+assert.equal(metaCompleted.conversationId, 'conv-abc-123', 'tool_call_completed should echo conversationId');
+assert.equal(metaCompleted.requestId, 'req-xyz-456', 'tool_call_completed should echo requestId');
+assert.deepEqual(metaCompleted.meta, { 'vscode.conversationId': 'conv-abc-123', 'vscode.requestId': 'req-xyz-456' }, 'tool_call_completed should echo full meta');
+
+assert.ok(noMetaStarted, 'expected tool_call_started for plain_tool');
+assert.equal(noMetaStarted.conversationId, undefined, 'tool_call_started without _meta should have no conversationId');
+assert.equal(noMetaStarted.requestId, undefined, 'tool_call_started without _meta should have no requestId');
+assert.equal(noMetaStarted.meta, undefined, 'tool_call_started without _meta should have no meta');
+
+console.log('PASS test-wrapper (_meta session attribution)');
 
 // ---------------------------------------------------------------------------
 // HTTP bridge mode — MYAI_REAL_URL

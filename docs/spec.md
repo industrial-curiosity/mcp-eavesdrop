@@ -109,6 +109,11 @@ interface McpToolEvent {
   result?: unknown;        // present on completed
   error?: string;          // present on failed
   durationMs?: number;     // present on completed/failed
+  ide?: string;            // IDE identifier (vscode, cursor) — added by daemon
+  workspaceSlug?: string;  // workspace slug — added by daemon
+  conversationId?: string; // VS Code chat session ID — present when call originated from a chat session
+  requestId?: string;      // VS Code chat request ID — future-proofed, captured but not displayed
+  meta?: Record<string, unknown>; // full _meta object from JSON-RPC request — preserved for observability
 }
 ```
 

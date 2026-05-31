@@ -58,12 +58,21 @@ The extension will automatically spawn a fresh daemon on next activation.
 
 The proxy emits a structured event stream (SSE) for every tool lifecycle event: `tool_call_started`, `tool_call_completed`, `tool_call_failed`. Each window's extension subscribes to the daemon's SSE stream and relays events to its local webview panel in real time.
 
+Events carry attribution fields for filtering and display:
+
+- `ide` — which IDE initiated the call (e.g. `vscode`, `cursor`)
+- `workspaceSlug` — the workspace the call came from
+- `conversationId` — the VS Code chat session that triggered the call (present only for calls originating from a chat session; absent otherwise)
+
+The panel displays a color-coded badge per conversation, making it easy to distinguish which chat session drove which tool calls.
+
 ### WebView Panel
 
 A VS Code WebView panel renders the live activity feed and historical session log. It shows:
 
 - Which tool is currently executing (with a spinner)
 - A timeline of all tool calls in the current session
+- Color-coded conversation badges for calls originating from VS Code chat sessions
 - Expandable detail for each call: arguments, response, duration, status
 
 ## Compatibility
