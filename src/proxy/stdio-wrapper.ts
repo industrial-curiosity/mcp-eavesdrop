@@ -1,4 +1,4 @@
-// MYAI_WRAPPER_VERSION=4
+// MYAI_WRAPPER_VERSION=5
 import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as https from 'node:https';
@@ -35,6 +35,8 @@ interface TrackedCall {
   eventId: string;
   toolName?: string;
   startedAt: number;
+  conversationId?: string;
+  requestId?: string;
 }
 
 interface TelemetryEvent {
@@ -49,6 +51,8 @@ interface TelemetryEvent {
   durationMs?: number;
   ide?: string;
   workspaceSlug?: string;
+  conversationId?: string;
+  requestId?: string;
 }
 
 function getEnv(name: string): string | undefined {
@@ -537,6 +541,10 @@ function handleJsonRpc(
   if (message.method === 'tools/call') {
     const requestId = message.id;
     const eventId = crypto.randomUUID();
+    const conversationId = message.params?._meta?.['vscode.conversationId'];
+    const reqId = message.params?._meta?.['vscode.requestId'];
+    const conversationIdStr = typeof conversationId === 'string' ? conversationId : undefined;
+    const requestIdStr = typeof reqId === 'string' ? reqId : undefined;
     const startedEvent: TelemetryEvent = {
       id: eventId,
       type: 'tool_call_started',
@@ -546,6 +554,8 @@ function handleJsonRpc(
       arguments: message.params?.arguments,
       ide,
       workspaceSlug,
+      ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
+      ...(requestIdStr !== undefined && { requestId: requestIdStr }),
     };
     writeLocalLog(startedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
     postTelemetry(socketPath, startedEvent);
@@ -555,6 +565,8 @@ function handleJsonRpc(
         eventId,
         toolName: message.params?.name,
         startedAt: now,
+        ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
+        ...(requestIdStr !== undefined && { requestId: requestIdStr }),
       });
     }
 
@@ -583,6 +595,8 @@ function handleJsonRpc(
       durationMs: now - tracked.startedAt,
       ide,
       workspaceSlug,
+      ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
+      ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
     };
     writeLocalLog(failedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
     postTelemetry(socketPath, failedEvent);
@@ -599,6 +613,8 @@ function handleJsonRpc(
     durationMs: now - tracked.startedAt,
     ide,
     workspaceSlug,
+    ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
+    ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
   };
   writeLocalLog(completedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
   postTelemetry(socketPath, completedEvent);

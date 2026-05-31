@@ -25,6 +25,10 @@ interface McpToolEvent {
   durationMs?: number;
   ide?: string;
   workspaceSlug?: string;
+  /** VS Code chat session ID — present when call originated from a chat session */
+  conversationId?: string;
+  /** VS Code chat request ID — future-proofed, captured but not displayed */
+  requestId?: string;
 }
 
 interface Connection {
@@ -41,6 +45,85 @@ interface Connection {
 // ---------------------------------------------------------------------------
 
 const vscode = acquireVsCodeApi();
+
+// ---------------------------------------------------------------------------
+// Conversation color assignment
+// ---------------------------------------------------------------------------
+
+const INITIAL_PALETTE = [
+  '#3B82F6', // blue
+  '#8B5CF6', // violet
+  '#10B981', // emerald
+  '#EA580C', // orange
+  '#EF4444', // red
+  '#06B6D4', // cyan
+  '#EC4899', // pink
+  '#0D9488', // teal
+];
+
+/** Ordered working palette — extended by midpoint-doubling when exhausted */
+const colorPalette: string[] = [...INITIAL_PALETTE];
+/** Tracks which palette slots are occupied (index → true) */
+const occupiedSlots = new Set<number>();
+/** Stable map from conversationId → assigned CSS color */
+const conversationColors = new Map<string, string>();
+
+function parseHex(hex: string): [number, number, number] {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+
+function toHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+}
+
+function midColor(a: string, b: string): string {
+  const [ar, ag, ab] = parseHex(a);
+  const [br, bg, bb] = parseHex(b);
+  return toHex(
+    Math.floor((ar + br) / 2),
+    Math.floor((ag + bg) / 2),
+    Math.floor((ab + bb) / 2),
+  );
+}
+
+function extendPalette(): void {
+  const current = [...colorPalette];
+  const extended: string[] = [];
+  for (let i = 0; i < current.length; i++) {
+    extended.push(current[i]);
+    extended.push(midColor(current[i], current[(i + 1) % current.length]));
+  }
+  colorPalette.length = 0;
+  colorPalette.push(...extended);
+}
+
+function charCodeSum(s: string): number {
+  let sum = 0;
+  for (let i = 0; i < s.length; i++) sum += s.charCodeAt(i);
+  return sum;
+}
+
+function getConversationColor(conversationId: string): string {
+  const existing = conversationColors.get(conversationId);
+  if (existing !== undefined) return existing;
+
+  // Extend palette until at least one free slot exists
+  while (occupiedSlots.size >= colorPalette.length) {
+    extendPalette();
+  }
+
+  const start = charCodeSum(conversationId) % colorPalette.length;
+  let slot = start;
+  while (occupiedSlots.has(slot)) {
+    slot = (slot + 1) % colorPalette.length;
+  }
+
+  occupiedSlots.add(slot);
+  const color = colorPalette[slot];
+  conversationColors.set(conversationId, color);
+  return color;
+}
 
 
 
@@ -258,6 +341,14 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
     sourceEl.className = 'entry-source';
     sourceEl.textContent = `${event.ide ?? ''}:${event.workspaceSlug}`;
     header.appendChild(sourceEl);
+  }
+
+  if (event.conversationId) {
+    const badgeEl = document.createElement('span');
+    badgeEl.className = 'conv-badge';
+    badgeEl.textContent = event.conversationId;
+    badgeEl.style.backgroundColor = getConversationColor(event.conversationId);
+    header.appendChild(badgeEl);
   }
 
   header.appendChild(statusIcon);

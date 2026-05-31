@@ -181,3 +181,26 @@ body {
   word-break: break-all;
   color: var(--vscode-foreground);
 }
+
+/* ── Entry metadata badges ───────────────────────────────────────── */
+
+.entry-source {
+  font-size: 0.75em;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.conv-badge {
+  font-size: 0.7em;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.92;
+}

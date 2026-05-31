@@ -23,4 +23,8 @@ export interface McpToolEvent {
   ide?: string;
   /** Workspace slug — added by daemon */
   workspaceSlug?: string;
+  /** VS Code chat session ID (from _meta['vscode.conversationId']) */
+  conversationId?: string;
+  /** VS Code chat request ID (from _meta['vscode.requestId']) */
+  requestId?: string;
 }

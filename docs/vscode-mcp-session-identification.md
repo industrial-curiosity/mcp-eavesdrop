@@ -73,25 +73,27 @@ stream. A `tools/call` message on the wire looks like:
 
 ## How to capture session ID in the wrapper
 
-`handleJsonRpc` currently reads `message.params.name` and
-`message.params.arguments`. To attribute a tool call to a session, also read
-`message.params._meta`:
+`handleJsonRpc` reads `message.params._meta` on every `tools/call` message and
+extracts `vscode.conversationId` and `vscode.requestId` into local variables:
 
 ```typescript
-interface JsonRpcMessage {
-  // existing fields ...
-  params?: {
-    name?: string;
-    arguments?: unknown;
-    // Loosely typed — VS Code may add new _meta fields in future releases.
-    // Narrow only when reading; never restrict the type.
-    _meta?: Record<string, unknown>;
-  };
-}
+const conversationId = message.params?._meta?.['vscode.conversationId'];
+const requestId = message.params?._meta?.['vscode.requestId'];
+const conversationIdStr = typeof conversationId === 'string' ? conversationId : undefined;
+const requestIdStr = typeof requestId === 'string' ? requestId : undefined;
 ```
 
-Then pass `conversationId` and `requestId` through to the telemetry event and
-on to the daemon so the monitoring panel can group and label calls by session.
+Both fields are included in the `tool_call_started` telemetry event when present
+(omitted entirely when absent), stored on the in-flight `TrackedCall` entry, and
+echoed onto `tool_call_completed` and `tool_call_failed` events so the monitoring
+panel can group calls by conversation.
+
+Both `McpToolEvent` (shared type, `src/types/events.ts`) and `TelemetryEvent`
+(wrapper-internal) carry `conversationId?: string` and `requestId?: string`.
+
+> **Wrapper version**: these fields were introduced in `MYAI_WRAPPER_VERSION=5`.
+> Deployed wrappers at version 4 or lower will never emit these fields.
+> Use `wrapper-deploy` (triggered by the extension) to update deployed wrappers.
 
 ## API access notes
 
