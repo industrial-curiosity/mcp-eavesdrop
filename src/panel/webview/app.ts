@@ -29,6 +29,8 @@ interface McpToolEvent {
   conversationId?: string;
   /** VS Code chat request ID — future-proofed, captured but not displayed */
   requestId?: string;
+  /** Full _meta object from the JSON-RPC request — preserved for observability */
+  meta?: Record<string, unknown>;
 }
 
 interface Connection {

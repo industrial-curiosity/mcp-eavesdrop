@@ -227,13 +227,16 @@ const noMetaStarted = metaTelemetryEvents.find((e) => e.type === 'tool_call_star
 assert.ok(metaStarted, 'expected tool_call_started for attributed_tool');
 assert.equal(metaStarted.conversationId, 'conv-abc-123', 'tool_call_started should carry conversationId from _meta');
 assert.equal(metaStarted.requestId, 'req-xyz-456', 'tool_call_started should carry requestId from _meta');
+assert.deepEqual(metaStarted.meta, { 'vscode.conversationId': 'conv-abc-123', 'vscode.requestId': 'req-xyz-456' }, 'tool_call_started should carry full _meta as meta');
 assert.ok(metaCompleted, 'expected tool_call_completed for attributed_tool');
 assert.equal(metaCompleted.conversationId, 'conv-abc-123', 'tool_call_completed should echo conversationId');
 assert.equal(metaCompleted.requestId, 'req-xyz-456', 'tool_call_completed should echo requestId');
+assert.deepEqual(metaCompleted.meta, { 'vscode.conversationId': 'conv-abc-123', 'vscode.requestId': 'req-xyz-456' }, 'tool_call_completed should echo full meta');
 
 assert.ok(noMetaStarted, 'expected tool_call_started for plain_tool');
 assert.equal(noMetaStarted.conversationId, undefined, 'tool_call_started without _meta should have no conversationId');
 assert.equal(noMetaStarted.requestId, undefined, 'tool_call_started without _meta should have no requestId');
+assert.equal(noMetaStarted.meta, undefined, 'tool_call_started without _meta should have no meta');
 
 console.log('PASS test-wrapper (_meta session attribution)');
 

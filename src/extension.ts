@@ -11,6 +11,7 @@ import { logMcpConfigDiagnostics, registerMonitoringCommands } from './monitorin
 import { checkForStaleWrappers } from './stale-check';
 import { detectIde, resolveUserMcpConfigPath } from './mcp-config';
 import { DAEMON_SOCKET_PATH } from './daemon/constants';
+import { deployWrapper } from './wrapper-deploy';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -438,6 +439,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   startHeartbeat();
 
   const configPath = resolveUserMcpConfigPath(ideConfig.ide);
+
+  // Always re-deploy wrapper on activation in case the bundled version changed.
+  deployWrapper(context);
+
   const staleWrappers = checkForStaleWrappers(configPath, ideConfig.rootKey);
   if (staleWrappers.length > 0) {
     void vscode.window.showWarningMessage('MyAI monitoring needs to be re-enabled. Run "MyAI: Enable MCP Monitoring".');
