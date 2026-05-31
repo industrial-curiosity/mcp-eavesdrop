@@ -1,7 +1,7 @@
 ## 1. Types
 
 - [ ] 1.1 Add optional `conversationId?: string` and `requestId?: string` fields to `McpToolEvent` in `src/types/events.ts`
-- [ ] 1.2 Add optional `_meta` field to the `params` type on `JsonRpcMessage` in `src/proxy/stdio-wrapper.ts` with `'vscode.conversationId'?: string` and `'vscode.requestId'?: string`
+- [x] 1.2 Confirm `_meta` on `JsonRpcMessage.params` is typed `Record<string, unknown>` — already present in code as `_meta?: Record<string, unknown>`; no change needed
 - [ ] 1.3 Add `conversationId` and `requestId` to the `TrackedCall` interface in `src/proxy/stdio-wrapper.ts`
 - [ ] 1.4 Add `conversationId` and `requestId` to the `TelemetryEvent` interface in `src/proxy/stdio-wrapper.ts`
 
@@ -16,9 +16,9 @@
 ## 3. Panel — display
 
 - [ ] 3.1 Update the webview event type to include `conversationId?: string` and `requestId?: string`
-- [ ] 3.2 Render a badge showing the full `conversationId` on each tool call entry when the field is present — do NOT truncate
-- [ ] 3.3 Insert a labelled session-change divider between entries that have a different `conversationId` than the previous entry
-- [ ] 3.4 Ensure entries without `conversationId` render without badge or divider (no regression)
+- [ ] 3.2 Render a color-coded badge showing the full `conversationId` on each tool call entry when the field is present — do NOT truncate; use the stable color from the conversation color map
+- [ ] 3.3 Ensure entries without `conversationId` render without a badge (no regression)
+- [ ] 3.4 Implement conversation color assignment: initial 8-color palette (`#3B82F6`, `#8B5CF6`, `#10B981`, `#EA580C`, `#EF4444`, `#06B6D4`, `#EC4899`, `#0D9488`); hash ID to slot (`charCodeSum % length`), linear probe for occupied slots; when all slots are taken extend palette by inserting per-channel integer RGB midpoints between each adjacent pair (wrapping last to first), doubling size; repeat on each exhaustion
 
 ## 4. Tests and docs
 

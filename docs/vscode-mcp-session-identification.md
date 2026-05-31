@@ -83,11 +83,9 @@ interface JsonRpcMessage {
   params?: {
     name?: string;
     arguments?: unknown;
-    _meta?: {
-      'vscode.conversationId'?: string;
-      'vscode.requestId'?: string;
-      traceparent?: string;
-    };
+    // Loosely typed — VS Code may add new _meta fields in future releases.
+    // Narrow only when reading; never restrict the type.
+    _meta?: Record<string, unknown>;
   };
 }
 ```

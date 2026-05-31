@@ -1,9 +1,13 @@
 ## MODIFIED Requirements
 
 ### Requirement: Wrapper taps JSON-RPC stream and sends telemetry to proxy
-The wrapper SHALL parse the stdio byte stream for complete MCP JSON-RPC messages and POST `tool_call_started`, `tool_call_completed`, and `tool_call_failed` events to the daemon's Unix socket at `POST /telemetry`. Each event SHALL include `ide`, `workspaceSlug`, `conversationId`, and `requestId` fields. `ide` and `workspaceSlug` are sourced from environment variables. `conversationId` and `requestId` are extracted from `params._meta['vscode.conversationId']` and `params._meta['vscode.requestId']` on the `tools/call` message. All four fields are optional — absence SHALL NOT block telemetry. Telemetry SHALL be fire-and-forget — failures MUST NOT interrupt the stdio relay.
+`handleJsonRpc` is called unconditionally — it is not gated on daemon reachability. Local log writes are always attempted first. The `postTelemetry` call to the daemon Unix socket remains fire-and-forget and fails silently when unreachable. Each `tool_call_started`, `tool_call_completed`, and `tool_call_failed` event SHALL include `ide`, `workspaceSlug`, and — when present in `_meta` — `conversationId` and `requestId`.
 
-The `_meta` field on `JsonRpcMessage.params` SHALL be typed as `Record<string, unknown>` — it MUST NOT be narrowed to only the currently known keys. This ensures future `_meta` fields added by VS Code are preserved and available without requiring a type change. `conversationId` and `requestId` are read by key access; all other fields are forwarded as-is.
+`conversationId` and `requestId` are extracted from `params._meta['vscode.conversationId']` and `params._meta['vscode.requestId']` on the `tools/call` message. All four fields are optional — absence SHALL NOT block telemetry.
+
+The `_meta` field on `JsonRpcMessage.params` SHALL be typed as `Record<string, unknown>` — it MUST NOT be narrowed to only the currently known keys.
+
+This requirement covers the stdio relay path only. The HTTP direct mode path (`handleHttpDirectMessage`, active when `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent) is excluded from this change.
 
 #### Scenario: Tool call intercepted with session metadata
 - **WHEN** a complete `{"method": "tools/call", ...}` JSON-RPC message is detected in the stream and `_meta['vscode.conversationId']` is present

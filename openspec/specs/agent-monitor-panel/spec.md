@@ -81,15 +81,15 @@ The panel log SHALL automatically scroll to the most recent entry as new events 
 
 ---
 
-### Requirement: Panel handles proxy port changes without user action
-The extension host SHALL handle daemon port changes transparently. The webview SHALL NOT be involved in reconnection logic.
+### Requirement: Panel handles daemon restarts without user action
+The extension host SHALL handle daemon restarts transparently by reconnecting to the Unix socket. The webview SHALL NOT be involved in reconnection logic.
 
 #### Scenario: Daemon restarts while panel is open
-- **WHEN** the daemon restarts and `~/.myai/daemon.json` reflects a new `proxyPort`
-- **THEN** the extension host SHALL detect the port change during reconnect
-- **THEN** the extension host SHALL update its internal state and re-subscribe to the daemon SSE stream
+- **WHEN** the daemon restarts and `~/.myai/daemon.json` is updated with a new `socketPath` or `startedAt`
+- **THEN** the extension host SHALL detect the socket failure during the next reconnect attempt
+- **THEN** the extension host SHALL re-read `~/.myai/daemon.json`, connect to the socket path found there, and re-subscribe to the daemon SSE stream
 - **THEN** no user action SHALL be required
-- **THEN** the webview SHALL receive only `{ type: 'status', connected: true }` — it SHALL NOT receive a port number
+- **THEN** the webview SHALL receive only `{ type: 'status', connected: true }` — it SHALL NOT receive daemon connection details
 
 ---
 
