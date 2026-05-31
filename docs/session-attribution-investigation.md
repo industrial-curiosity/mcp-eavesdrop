@@ -1,8 +1,8 @@
 # Session Attribution Investigation
 
 > Continuation document for the `mcp-session-attribution` change and the
-> follow-on VS Code source investigation.  
-> Created: 2026-05-31  
+> follow-on VS Code source investigation.
+> Created: 2026-05-31
 > Status at creation: **all tasks complete; investigation pivoted to alternative
 > architectures**
 
@@ -99,8 +99,8 @@ Event types:
 
 All events carry `sessionResource: Uri` for session attribution.
 
-**Requires**: `"chatDebug"` in `enabledApiProposals` in `package.json`.  
-**Used by**: the bundled VS Code `copilot` extension.  
+**Requires**: `"chatDebug"` in `enabledApiProposals` in `package.json`.
+**Used by**: the bundled VS Code `copilot` extension.
 **Availability**: proposed API — works in development with `--enable-proposed-api`,
 requires VS Code team whitelist for marketplace publishing.
 
@@ -129,7 +129,7 @@ Already documented in `docs/vscode-mcp-session-identification.md`. Provides:
 - `ChatContext.sessionResource?: Uri` — session URI available in steering
   context
 
-**Requires**: `"chatParticipantPrivate"` in `enabledApiProposals`.  
+**Requires**: `"chatParticipantPrivate"` in `enabledApiProposals`.
 **Problem**: Copilot doesn't pass `chatSessionResource` to MCP tool invocations
 today, so even with this API our wrapper wouldn't receive it.
 
@@ -148,7 +148,7 @@ calls. Not useful for monitoring.
 Keep v6 wrapper, accept that `conversationId` is absent for now. Grouping of
 tool calls by session is deferred until Copilot passes session context.
 
-**Pro**: already built and working for timing/payload/error capture.  
+**Pro**: already built and working for timing/payload/error capture.
 **Con**: no session attribution, no skill visibility, no subagent visibility.
 
 ### Option B — pivot to `chatDebug` proposed API
@@ -159,7 +159,7 @@ Optionally register a `ChatDebugLogProvider` to merge our MCP wire-level events
 (timing, full `_meta`, error details) with core events.
 
 **Pro**: correct session attribution, skill activation events, subagent tracking,
-model turn token counts — everything the panel was designed to show.  
+model turn token counts — everything the panel was designed to show.
 **Con**: requires `chatDebug` proposed API access; proposed APIs cannot be used
 in marketplace extensions without VS Code team approval. Could be gated behind a
 development-only flag.
