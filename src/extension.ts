@@ -191,6 +191,39 @@ async function fetchAndSendConnections(): Promise<void> {
   } catch { /* daemon not reachable */ }
 }
 
+async function restartDaemonFromCommand(): Promise<void> {
+  if (!extensionContext) {
+    void vscode.window.showErrorMessage('MyAI: Cannot restart daemon before extension is fully initialized.');
+    return;
+  }
+
+  AgentPanel.postMessage({ type: 'status', connected: false });
+
+  try {
+    await postDaemon(DAEMON_SOCKET_PATH, '/shutdown', { force: true });
+  } catch {
+    // Best-effort shutdown: continue with bootstrap flow even if the daemon is already down.
+  }
+
+  const connected = await connectToDaemon(extensionContext);
+  if (!connected) {
+    void vscode.window.showErrorMessage('MyAI: Failed to restart daemon. Try reloading the window.');
+    return;
+  }
+
+  const daemonInfo = readDaemonJson();
+  if (daemonInfo) {
+    myaiLog(`MyAI: daemon restarted via command (pid=${daemonInfo.pid})`);
+  }
+
+  await registerInstanceWithDaemon();
+
+  daemonConnected = true;
+  AgentPanel.postMessage({ type: 'status', connected: true });
+  void fetchAndSendConnections();
+  void vscode.window.showInformationMessage('MyAI: Daemon restarted.');
+}
+
 // ---------------------------------------------------------------------------
 // Daemon connection monitor (reconnects on drop, respawns daemon if dead)
 // ---------------------------------------------------------------------------
@@ -467,11 +500,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
+  const restartDaemonCmd = vscode.commands.registerCommand('myai.restartDaemon', async () => {
+    await restartDaemonFromCommand();
+  });
+
   const showConfigCmd = vscode.commands.registerCommand('myai.showMcpConfig', () => {
     if (outputChannel) showProxyConfigSnippet(outputChannel);
   });
 
-  context.subscriptions.push(openPanelCmd, clearSessionCmd, showConfigCmd);
+  context.subscriptions.push(openPanelCmd, clearSessionCmd, restartDaemonCmd, showConfigCmd);
 
   registerMonitoringCommands(context, {
     ide: ideConfig.ide,

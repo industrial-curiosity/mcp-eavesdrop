@@ -16,6 +16,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { ConnectionRegistry } from './registry';
+import { EventLogger } from './logger';
 import { McpToolEvent } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -27,12 +28,15 @@ const MYAI_DIR = path.join(HOME, '.myai');
 import { DAEMON_SOCKET_PATH } from './constants';
 
 const DAEMON_JSON_PATH = path.join(MYAI_DIR, 'daemon.json');
+const DEFAULT_LOG_IDE = 'test';
+const DEFAULT_LOG_WORKSPACE = 'mock';
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
 const registry = new ConnectionRegistry();
+const eventLogger = new EventLogger();
 /** Open SSE response streams, keyed by instanceId */
 const sseStreams = new Map<string, http.ServerResponse>();
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -263,6 +267,11 @@ function createUnixServer(): http.Server {
         res.end(JSON.stringify({ error: 'Missing required fields: id, type, timestamp' }));
         return;
       }
+
+      const logIde = (event.ide ?? '').trim() || DEFAULT_LOG_IDE;
+      const logWorkspace = (event.workspaceSlug ?? '').trim() || DEFAULT_LOG_WORKSPACE;
+      eventLogger.append(event as unknown as Record<string, unknown>, logIde, logWorkspace);
+
       broadcastEvent(event);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end('{}');

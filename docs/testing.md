@@ -297,6 +297,98 @@ Expected output ends with `PASS reconnect`
 
 ---
 
+---
+
+## Agent Monitor panel v2 — filter bar and layout
+
+These are manual verification steps for the filter bar, connections sidebar, and history reload features introduced in the `agent-monitor-panel-v2` change. Run `npm run build` first, then install the extension in the Extension Development Host (see **Task 8.1** above).
+
+### 6.1 — Connections sidebar renders
+
+1. Open the Agent Monitor panel (**MyAI: Open Agent Monitor Panel**).
+2. The panel body is split into two columns: a **Connections** sidebar on the left and a **log area** on the right.
+3. With the daemon running, the sidebar should list at least one connection entry. It must not be empty or invisible.
+
+### 6.2 — Server select populates from live events
+
+1. Trigger MCP tool calls through at least two different servers (e.g., using `node scripts/test-proxy.mjs` and a second server).
+2. Open the filter bar's **server** select (`All servers` default).
+3. Each server name that produced at least one event must appear as an option. No duplicates.
+
+### 6.3 — Individual filters hide/show entries
+
+Test each of the four controls independently (reset others to "All" / empty before testing each):
+
+- **Tool name** (`filterTool`): Type a substring matching some entries — only matching entries should remain visible. Clear the input — all entries reappear.
+- **Server** (`filterServer`): Select a specific server — only that server's entries appear.
+- **Status** (`filterStatus`): Select "in-progress" — only spinning entries appear. Select "completed" — only green ✓ entries appear. Select "failed" — only red ✗ entries appear.
+- **Time range** (`filterTime`): Select "Last hour" — entries older than 1 hour disappear. Select "Today" — entries from previous days disappear. Select "All" — all entries reappear.
+
+### 6.8 — Timestamp column is visible and ordered
+
+1. Trigger at least two tool calls a few seconds apart.
+2. Verify each row shows a left-side timestamp column.
+3. Verify the timestamp shows both local date and time (not time-only).
+4. Confirm the visible timestamp order matches the selected sort order (newest-first or oldest-first).
+5. Reload history (change any filter) and verify timestamps are still present on reloaded rows.
+
+### 6.9 — Mock source is normalized and filterable
+
+1. Generate synthetic/mock telemetry that would otherwise show source as `unknown:unknown`.
+2. Verify entry source labels show `test:mock`.
+3. Verify the left sidebar includes a `test:mock` filter row even if it is not present in daemon `/connections`.
+4. Toggle the `test:mock` checkbox and confirm matching entries hide/show correctly.
+
+### 6.10 — Toolbar Refresh reloads initial data
+
+1. With the panel open, click **Refresh** (left of **Clear**).
+2. Verify the panel reloads current status, connections, and history without reopening the panel.
+3. Confirm no duplicate `tool_call_started` rows are introduced by refresh.
+4. Confirm existing completed/failed entries remain correctly updated after refresh.
+
+### 6.11 — Initial open includes latest telemetry logs
+
+1. Trigger a telemetry event (for example with `node scripts/test-proxy.mjs`).
+2. Close the Agent Monitor panel if open.
+3. Re-open the panel via **MyAI: Open Agent Monitor Panel**.
+4. Verify the newest event from the current day appears immediately on initial load (without clicking Refresh).
+
+### 6.12 — Restart daemon command restores panel connectivity
+
+1. Open the panel and confirm it is receiving events.
+2. Run **MyAI: Restart Daemon** from the Command Palette.
+3. Verify a success notification appears and panel status returns to connected.
+4. Verify connections repopulate and new events continue streaming without reloading the window.
+
+### 6.4 — Combined filters apply as AND logic
+
+1. Set **Server** to a specific server and **Status** to "completed".
+2. Only entries that match both conditions (that server AND completed) should be visible.
+3. Changing one filter to "All" while the other remains set should broaden the visible set accordingly.
+
+### 6.5 — No conversationId badge or color assignment
+
+1. Trigger several tool calls, including multiple calls in the same conversation.
+2. Expand individual entries.
+3. No colored badge or "conversation ID" label should appear anywhere in any entry.
+
+### 6.6 — Panel open/close/reopen resets filter bar
+
+1. Set one or more filters to non-default values.
+2. Close the panel (click the × on the tab).
+3. Re-open the panel via **MyAI: Open Agent Monitor Panel**.
+4. All filter controls should be reset to their defaults ("All", empty text input). The history is reloaded from disk.
+
+### 6.7 — Filter changes trigger history reload
+
+1. Clear the log with the **Clear** button.
+2. Change the **Server** filter (or any filter) to a non-default value.
+3. The panel should reload history from disk — persisted events matching all active filters should reappear.
+4. For the **Tool name** text input: type a few characters; the reload is debounced (300 ms), so the history request fires after typing pauses rather than on every keystroke. `reapplyFilters()` still runs immediately on each keystroke.
+5. Change any filter back to "All" / clear the text input — all persisted events should be visible again.
+
+---
+
 ## Common issues
 
 | Symptom | Likely cause | Fix |

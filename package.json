@@ -30,6 +30,10 @@
         "title": "MyAI: Clear Session"
       },
       {
+        "command": "myai.restartDaemon",
+        "title": "MyAI: Restart Daemon"
+      },
+      {
         "command": "myai.showMcpConfig",
         "title": "MyAI: Show Proxy MCP Config"
       },

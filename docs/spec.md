@@ -56,6 +56,7 @@ myai-extension/
 | --- | --- |
 | `myai.openPanel` | AI Agent Monitor: Open Panel |
 | `myai.clearSession` | AI Agent Monitor: Clear Session |
+| `myai.restartDaemon` | AI Agent Monitor: Restart Daemon |
 
 ---
 
@@ -140,6 +141,7 @@ interface McpToolEvent {
 | Host → WebView | `history` | `{ events: McpToolEvent[] }` |
 | WebView → Host | `clearSession` | `{}` |
 | WebView → Host | `ready` | `{}` |
+| WebView → Host | `requestHistory` | `{}` |
 
 ---
 
@@ -148,24 +150,33 @@ interface McpToolEvent {
 **Layout:**
 
 ```text
-┌─────────────────────────────────────┐
-│  AI Agent Monitor          [Clear]  │
-├─────────────────────────────────────┤
-│  ● file_search           12ms  ✓    │  ← completed
-│  ● run_in_terminal       ...   ⟳    │  ← in progress (spinner)
-│  ● grep_search           8ms   ✓    │
-│    ▼ Arguments                      │  ← expandable
-│      { "query": "activation" }      │
-│    ▼ Result                         │
-│      [ "src/extension.ts" ]         │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  AI Agent Monitor                              [Clear]        │
+├────────────────────┬─────────────────────────────────────────┤
+│  Connections       │  [tool name…] [All servers▾] [All▾] [All▾] │
+│  sidebar           ├─────────────────────────────────────────┤
+│  ☑ vscode:ws1      │  ● file_search           12ms  ✓        │
+│  ☐ cursor:ws2      │  ● run_in_terminal       ...   ⟳        │
+│                    │  ● grep_search           8ms   ✓        │
+│                    │    ▼ Arguments                           │
+│                    │      { "query": "activation" }           │
+│                    │    ▼ Result                              │
+│                    │      [ "src/extension.ts" ]              │
+└────────────────────┴─────────────────────────────────────────┘
 ```
 
 **UI requirements:**
 
+- Panel body is a two-column flex layout: `.connections-sidebar` (180px fixed) and `.main-content` (remaining space)
+- The connections sidebar renders all active daemon connections and any observed non-connection event sources; each source has a checkbox to include/exclude its events; checkbox state is persisted in `localStorage`
+- Filter bar sits above the log; contains five controls: sort toggle (newest first / oldest first), tool name text input, server select, status select (All / In-progress / Completed / Failed), time range select (All / Last hour / Today)
+- All four filter controls apply simultaneously (AND logic) via `reapplyFilters()`
+- Filter bar state is in-memory only and resets when the panel is reopened
+- Each log entry shows a left-side local date+time timestamp column sourced from `event.timestamp`
 - In-progress tools display a spinner and no duration until completed
 - Failed tools display in red with the error message
-- Each entry is expandable to show full arguments and result (JSON, pretty-printed)
+- A Refresh button in the toolbar re-runs initial data loading (`status`, `connections`, `history`) without reopening the panel
+- Each entry is expandable to show full arguments, result, and `meta` when present (JSON, pretty-printed)
 - Session log scrolls to latest entry automatically
 - "Clear" button emits `clearSession` to host and resets local state
 - Uses VS Code's CSS custom properties (`--vscode-*`) for full theme compatibility

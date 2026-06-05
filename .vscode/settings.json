@@ -8,6 +8,7 @@
             "matchCommandLine": true
         },
         "npx tsc": true,
-        "mv": true
+        "mv": true,
+        "npm run compile": true
     }
 }
