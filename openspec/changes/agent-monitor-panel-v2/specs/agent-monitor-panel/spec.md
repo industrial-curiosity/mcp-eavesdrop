@@ -1,12 +1,18 @@
 ## MODIFIED Requirements
 
 ### Requirement: Panel displays real-time tool call log
-The panel SHALL render a scrolling list of `McpToolEvent` entries showing tool name, status, and duration.
+The panel SHALL render a scrolling list of `McpToolEvent` entries showing timestamp, tool name, status, and duration.
 
 #### Scenario: In-progress tool call display
 - **WHEN** a `tool_call_started` event is received
-- **THEN** the panel SHALL add an entry with the tool name and a spinner
+- **THEN** the panel SHALL add an entry with the event timestamp shown in a leftmost timestamp column
+- **THEN** the panel SHALL add the tool name and a spinner
 - **THEN** no duration SHALL be shown until the call completes
+
+#### Scenario: Timestamp source for live and history entries
+- **WHEN** a live event or history event is rendered
+- **THEN** the timestamp column SHALL be derived from `event.timestamp`
+- **THEN** existing persisted `.jsonl` logs that already include `timestamp` SHALL render without requiring log deletion or migration
 
 #### Scenario: Completed tool call display
 - **WHEN** a `tool_call_completed` event is received for a tracked call

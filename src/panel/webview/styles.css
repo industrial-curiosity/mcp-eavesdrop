@@ -92,13 +92,15 @@ body {
   display: flex;
   flex-direction: row;
   gap: 6px;
-  padding: 6px 8px;
+  /* Left padding matches: log-container-pad + entry-border + entry-pad + timestamp + gap + status-icon + gap */
+  padding: 6px 8px 6px calc(31px + var(--entry-timestamp-width, 68px) + 1.2em);
   border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, #444));
   flex-shrink: 0;
 }
 
 .filter-bar input,
-.filter-bar select {
+.filter-bar select,
+#sortToggle {
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, #444));
@@ -115,6 +117,14 @@ body {
 
 .filter-bar select {
   cursor: pointer;
+}
+
+#sortToggle {
+  cursor: pointer;
+}
+
+#filterServer {
+  margin-left: auto;
 }
 
 /* ── Log container ───────────────────────────────────────────────── */
@@ -161,6 +171,14 @@ body {
   flex-shrink: 0;
   width: 1.2em;
   text-align: center;
+}
+
+.entry-timestamp {
+  width: var(--entry-timestamp-width, 68px);
+  flex-shrink: 0;
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes spin {
@@ -245,4 +263,5 @@ body {
   color: var(--vscode-descriptionForeground);
   flex-shrink: 0;
   opacity: 0.8;
+  margin-left: 6px;
 }

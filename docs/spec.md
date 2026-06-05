@@ -140,6 +140,7 @@ interface McpToolEvent {
 | Host → WebView | `history` | `{ events: McpToolEvent[] }` |
 | WebView → Host | `clearSession` | `{}` |
 | WebView → Host | `ready` | `{}` |
+| WebView → Host | `requestHistory` | `{}` |
 
 ---
 
@@ -167,9 +168,10 @@ interface McpToolEvent {
 
 - Panel body is a two-column flex layout: `.connections-sidebar` (180px fixed) and `.main-content` (remaining space)
 - The connections sidebar renders all active daemon connections, each with a checkbox to include/exclude that connection's events; checkbox state is persisted in `localStorage`
-- Filter bar sits above the log; contains four controls: tool name text input, server select, status select (All / In-progress / Completed / Failed), time range select (All / Last hour / Today)
+- Filter bar sits above the log; contains five controls: sort toggle (newest first / oldest first), tool name text input, server select, status select (All / In-progress / Completed / Failed), time range select (All / Last hour / Today)
 - All four filter controls apply simultaneously (AND logic) via `reapplyFilters()`
 - Filter bar state is in-memory only and resets when the panel is reopened
+- Each log entry shows a left-side timestamp column sourced from `event.timestamp`
 - In-progress tools display a spinner and no duration until completed
 - Failed tools display in red with the error message
 - Each entry is expandable to show full arguments, result, and `meta` when present (JSON, pretty-printed)

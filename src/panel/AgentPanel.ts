@@ -84,6 +84,14 @@ export class AgentPanel {
         break;
       }
 
+      case 'requestHistory': {
+        const history = this._loadHistory();
+        if (history.length > 0) {
+          this._panel.webview.postMessage({ type: 'history', events: history });
+        }
+        break;
+      }
+
       case 'clearSession':
         vscode.commands.executeCommand('myai.clearSession');
         break;
@@ -98,39 +106,46 @@ export class AgentPanel {
     const logsDir = path.join(os.homedir(), '.myai', 'logs');
     const events: unknown[] = [];
     try {
-      // Structure: <logsDir>/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl
       const ideDirs = fs.readdirSync(logsDir, { withFileTypes: true })
         .filter(d => d.isDirectory())
         .map(d => path.join(logsDir, d.name));
       for (const ideDir of ideDirs) {
-        const workspaceDirs = fs.readdirSync(ideDir, { withFileTypes: true })
-          .filter(d => d.isDirectory())
-          .map(d => path.join(ideDir, d.name));
-        for (const wsDir of workspaceDirs) {
-          const dateDirs = fs.readdirSync(wsDir, { withFileTypes: true })
-            .filter(d => d.isDirectory())
-            .map(d => path.join(wsDir, d.name));
-          for (const dateDir of dateDirs) {
-            const logFiles = fs.readdirSync(dateDir).filter(f => f.endsWith('.jsonl'));
-            for (const logFile of logFiles) {
-              const content = fs.readFileSync(path.join(dateDir, logFile), 'utf8');
-              for (const line of content.split('\n')) {
-                const trimmed = line.trim();
-                if (!trimmed) continue;
-                try { events.push(JSON.parse(trimmed)); } catch { /* skip malformed */ }
+        const ideEntries = fs.readdirSync(ideDir, { withFileTypes: true });
+        for (const entry of ideEntries) {
+          if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+            // Flat format written by daemon logger: <ide>/<workspaceSlug>.jsonl
+            this._readJsonlInto(path.join(ideDir, entry.name), events);
+          } else if (entry.isDirectory()) {
+            // Nested format written by stdio-wrapper: <ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl
+            const wsDir = path.join(ideDir, entry.name);
+            const dateDirs = fs.readdirSync(wsDir, { withFileTypes: true })
+              .filter(d => d.isDirectory())
+              .map(d => path.join(wsDir, d.name));
+            for (const dateDir of dateDirs) {
+              const logFiles = fs.readdirSync(dateDir).filter(f => f.endsWith('.jsonl'));
+              for (const logFile of logFiles) {
+                this._readJsonlInto(path.join(dateDir, logFile), events);
               }
             }
           }
         }
       }
     } catch { /* logs dir not present yet */ }
-    // Sort by timestamp ascending
     events.sort((a, b) => {
       const ta = (a as { timestamp?: number }).timestamp ?? 0;
       const tb = (b as { timestamp?: number }).timestamp ?? 0;
       return ta - tb;
     });
     return events;
+  }
+
+  private _readJsonlInto(filePath: string, out: unknown[]): void {
+    const content = fs.readFileSync(filePath, 'utf8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try { out.push(JSON.parse(trimmed)); } catch { /* skip malformed */ }
+    }
   }
 
   // ---------------------------------------------------------------------------

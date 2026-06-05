@@ -61,6 +61,10 @@ const filterToolEl = document.getElementById('filterTool') as HTMLInputElement;
 const filterServerEl = document.getElementById('filterServer') as HTMLSelectElement;
 const filterStatusEl = document.getElementById('filterStatus') as HTMLSelectElement;
 const filterTimeEl = document.getElementById('filterTime') as HTMLSelectElement;
+const sortToggleEl = document.getElementById('sortToggle') as HTMLButtonElement;
+
+type SortOrder = 'desc' | 'asc';
+let sortOrder: SortOrder = 'desc';
 
 // Active filter: key = "ide/workspaceSlug", value = true (visible) | false (hidden)
 const filterState = new Map<string, boolean>();
@@ -143,6 +147,7 @@ window.addEventListener('message', (event: MessageEvent) => {
 
   if (data.type === 'history' && Array.isArray(data.events)) {
     for (const evt of data.events) {
+      if (evt && evt.type === 'tool_call_started' && entries.has(evt.id)) continue;
       if (isVisible(evt)) handleEvent(evt, true);
     }
   }
@@ -255,6 +260,32 @@ function isScrolledToBottom(): boolean {
   );
 }
 
+function insertEntry(entry: HTMLElement): void {
+  if (sortOrder === 'desc') {
+    logContainer.prepend(entry);
+    return;
+  }
+  logContainer.appendChild(entry);
+}
+
+function updateSortToggleLabel(): void {
+  sortToggleEl.textContent = sortOrder === 'desc' ? '\u2193 Newest first' : '\u2191 Oldest first';
+}
+
+function reorderEntriesInDom(): void {
+  const sortedEntries = Array.from(entries.values()).sort((a, b) => {
+    const ta = Number(a.dataset['timestamp'] ?? '0');
+    const tb = Number(b.dataset['timestamp'] ?? '0');
+    return sortOrder === 'desc' ? tb - ta : ta - tb;
+  });
+
+  const previousScrollTop = logContainer.scrollTop;
+  for (const entry of sortedEntries) {
+    logContainer.appendChild(entry);
+  }
+  logContainer.scrollTop = previousScrollTop;
+}
+
 // ---------------------------------------------------------------------------
 // Event rendering
 // ---------------------------------------------------------------------------
@@ -277,7 +308,7 @@ function handleEvent(event: McpToolEvent, isHistory: boolean): void {
       if (event.serverName) addServerOption(event.serverName);
       if (!isVisible(event)) entry.style.display = 'none';
       entries.set(event.id, entry);
-      logContainer.appendChild(entry);
+      insertEntry(entry);
       break;
     }
     case 'tool_call_completed': {
@@ -315,6 +346,10 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
   statusIcon.className = 'entry-status spinner';
   statusIcon.textContent = '\u21bb'; // ↻
 
+  const timestampEl = document.createElement('span');
+  timestampEl.className = 'entry-timestamp';
+  timestampEl.textContent = formatTimestamp(event.timestamp);
+
   const nameEl = document.createElement('span');
   nameEl.className = 'entry-name';
   nameEl.textContent = event.toolName ?? '(unknown)';
@@ -323,16 +358,17 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
   serverEl.className = 'entry-server';
   serverEl.textContent = event.serverName ?? '';
 
+  header.appendChild(timestampEl);
+  header.appendChild(statusIcon);
+  header.appendChild(nameEl);
+  header.appendChild(serverEl);
+
   if (event.workspaceSlug) {
     const sourceEl = document.createElement('span');
     sourceEl.className = 'entry-source';
     sourceEl.textContent = `${event.ide ?? ''}:${event.workspaceSlug}`;
     header.appendChild(sourceEl);
   }
-
-  header.appendChild(statusIcon);
-  header.appendChild(nameEl);
-  header.appendChild(serverEl);
 
   const details = document.createElement('div');
   details.className = 'entry-details';
@@ -422,6 +458,15 @@ function createDetailsSection(label: string, value: unknown): HTMLElement {
   return section;
 }
 
+function formatTimestamp(timestamp: number): string {
+  if (!timestamp) return '--:--:--';
+  const date = new Date(timestamp);
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
 // ---------------------------------------------------------------------------
 // Clear log
 // ---------------------------------------------------------------------------
@@ -440,9 +485,25 @@ clearBtn.addEventListener('click', () => {
   vscode.postMessage({ type: 'clearSession' });
 });
 
-filterToolEl.addEventListener('input', () => reapplyFilters());
-filterServerEl.addEventListener('change', () => reapplyFilters());
-filterStatusEl.addEventListener('change', () => reapplyFilters());
-filterTimeEl.addEventListener('change', () => reapplyFilters());
+let reloadDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+function postRequestHistory(): void {
+  vscode.postMessage({ type: 'requestHistory' });
+}
+
+filterToolEl.addEventListener('input', () => {
+  reapplyFilters();
+  clearTimeout(reloadDebounceTimer);
+  reloadDebounceTimer = setTimeout(postRequestHistory, 300);
+});
+filterServerEl.addEventListener('change', () => { reapplyFilters(); postRequestHistory(); });
+filterStatusEl.addEventListener('change', () => { reapplyFilters(); postRequestHistory(); });
+filterTimeEl.addEventListener('change', () => { reapplyFilters(); postRequestHistory(); });
+sortToggleEl.addEventListener('click', () => {
+  sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+  updateSortToggleLabel();
+  reorderEntriesInDom();
+});
+
+updateSortToggleLabel();
 
 // Suppress unused warning for renderConnections — exported for potential future use

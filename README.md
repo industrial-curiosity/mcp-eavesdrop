@@ -70,12 +70,14 @@ A VS Code WebView panel renders the live activity feed and historical session lo
 
 The main content area contains:
 
-- A **filter bar** with four controls:
+- A **filter bar** with five controls:
+  - **Sort order** — toggle between newest-first and oldest-first log ordering
   - **Tool name** — text search for substring matches on tool names (case-insensitive)
   - **Server** — select to show calls from a specific MCP server (populated dynamically as events arrive)
   - **Status** — filter by call status: All, In-progress, Completed, or Failed
   - **Time range** — filter by recency: All, Last hour, or Today
 - A **log** showing the tool call timeline:
+  - A left-side timestamp column for each call row (wall-clock time)
   - Which tool is currently executing (with a spinner)
   - A timeline of all tool calls in the current session
   - Expandable detail for each call: arguments, response, duration, status, and `meta` when present
