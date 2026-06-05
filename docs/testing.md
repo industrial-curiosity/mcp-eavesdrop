@@ -328,8 +328,37 @@ Test each of the four controls independently (reset others to "All" / empty befo
 
 1. Trigger at least two tool calls a few seconds apart.
 2. Verify each row shows a left-side timestamp column.
-3. Confirm the visible timestamp order matches the selected sort order (newest-first or oldest-first).
-4. Reload history (change any filter) and verify timestamps are still present on reloaded rows.
+3. Verify the timestamp shows both local date and time (not time-only).
+4. Confirm the visible timestamp order matches the selected sort order (newest-first or oldest-first).
+5. Reload history (change any filter) and verify timestamps are still present on reloaded rows.
+
+### 6.9 — Mock source is normalized and filterable
+
+1. Generate synthetic/mock telemetry that would otherwise show source as `unknown:unknown`.
+2. Verify entry source labels show `test:mock`.
+3. Verify the left sidebar includes a `test:mock` filter row even if it is not present in daemon `/connections`.
+4. Toggle the `test:mock` checkbox and confirm matching entries hide/show correctly.
+
+### 6.10 — Toolbar Refresh reloads initial data
+
+1. With the panel open, click **Refresh** (left of **Clear**).
+2. Verify the panel reloads current status, connections, and history without reopening the panel.
+3. Confirm no duplicate `tool_call_started` rows are introduced by refresh.
+4. Confirm existing completed/failed entries remain correctly updated after refresh.
+
+### 6.11 — Initial open includes latest telemetry logs
+
+1. Trigger a telemetry event (for example with `node scripts/test-proxy.mjs`).
+2. Close the Agent Monitor panel if open.
+3. Re-open the panel via **MyAI: Open Agent Monitor Panel**.
+4. Verify the newest event from the current day appears immediately on initial load (without clicking Refresh).
+
+### 6.12 — Restart daemon command restores panel connectivity
+
+1. Open the panel and confirm it is receiving events.
+2. Run **MyAI: Restart Daemon** from the Command Palette.
+3. Verify a success notification appears and panel status returns to connected.
+4. Verify connections repopulate and new events continue streaming without reloading the window.
 
 ### 6.4 — Combined filters apply as AND logic
 

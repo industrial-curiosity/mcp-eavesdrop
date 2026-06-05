@@ -42,6 +42,13 @@ interface Connection {
   lastHeartbeat: number;
 }
 
+interface SourceIdentity {
+  ide: string;
+  workspaceSlug: string;
+  key: string;
+  label: string;
+}
+
 // ---------------------------------------------------------------------------
 // Globals
 // ---------------------------------------------------------------------------
@@ -55,8 +62,9 @@ const entries = new Map<string, HTMLElement>();
 
 const logContainer = document.getElementById('log') as HTMLElement;
 const statusEl = document.getElementById('status') as HTMLElement;
+const refreshBtn = document.getElementById('refreshBtn') as HTMLButtonElement;
 const clearBtn = document.getElementById('clearBtn') as HTMLButtonElement;
-const connectionsEl = document.getElementById('connections') as HTMLElement | null;
+const connectionsEl = document.getElementById('connections');
 const filterToolEl = document.getElementById('filterTool') as HTMLInputElement;
 const filterServerEl = document.getElementById('filterServer') as HTMLSelectElement;
 const filterStatusEl = document.getElementById('filterStatus') as HTMLSelectElement;
@@ -68,6 +76,7 @@ let sortOrder: SortOrder = 'desc';
 
 // Active filter: key = "ide/workspaceSlug", value = true (visible) | false (hidden)
 const filterState = new Map<string, boolean>();
+const sourceIdentityByKey = new Map<string, SourceIdentity>();
 const FILTER_STORAGE_KEY = 'myai-filters';
 
 function loadFilters(): void {
@@ -102,8 +111,10 @@ function isTimeVisible(timestamp: number, timeFilter: string): boolean {
 }
 
 function isVisible(event: McpToolEvent, entryEl?: HTMLElement): boolean {
+  const source = normalizeSourceIdentity(event.ide, event.workspaceSlug);
+
   // IDE/workspace filter
-  const key = `${event.ide ?? ''}/${event.workspaceSlug ?? ''}`;
+  const key = source.key;
   if (filterState.get(key) === false) return false;
 
   // Tool name filter
@@ -136,33 +147,54 @@ loadFilters();
 // Message bus — receive messages from the extension host
 // ---------------------------------------------------------------------------
 
-window.addEventListener('message', (event: MessageEvent) => {
-  const data = event.data as {
-    type: string;
-    events?: McpToolEvent[];
-    event?: McpToolEvent;
-    connected?: boolean;
-    connections?: Connection[];
-  };
+type WebviewHostMessage = {
+  type: string;
+  events?: McpToolEvent[];
+  event?: McpToolEvent;
+  connected?: boolean;
+  connections?: Connection[];
+};
 
+function handleHistoryMessage(events: McpToolEvent[]): void {
+  for (const evt of events) {
+    if (evt?.type === 'tool_call_started' && entries.has(evt.id)) continue;
+    handleEvent(evt, true);
+  }
+  reapplyFilters();
+}
+
+function handleEventMessage(evt: McpToolEvent): void {
+  handleEvent(evt, false);
+  reapplyFilters();
+}
+
+function handleHostMessage(data: WebviewHostMessage): void {
   if (data.type === 'history' && Array.isArray(data.events)) {
-    for (const evt of data.events) {
-      if (evt && evt.type === 'tool_call_started' && entries.has(evt.id)) continue;
-      if (isVisible(evt)) handleEvent(evt, true);
-    }
+    handleHistoryMessage(data.events);
+    return;
   }
 
   if (data.type === 'event' && data.event) {
-    if (isVisible(data.event)) handleEvent(data.event, false);
+    handleEventMessage(data.event);
+    return;
   }
 
   if (data.type === 'status') {
     setStatus(data.connected ? '' : 'Disconnected \u2014 reconnecting\u2026');
+    return;
   }
 
   if (data.type === 'connections' && Array.isArray(data.connections)) {
     renderConnections(data.connections);
   }
+}
+
+window.addEventListener('message', (event: MessageEvent) => {
+  if (typeof event.origin === 'string' && !event.origin.startsWith('vscode-webview://')) {
+    return;
+  }
+
+  handleHostMessage(event.data as WebviewHostMessage);
 });
 
 // Signal to the extension host that the WebView has loaded
@@ -181,10 +213,65 @@ function setStatus(text: string): void {
 // ---------------------------------------------------------------------------
 
 function renderConnections(connections: Connection[]): void {
+  for (const conn of connections) {
+    registerSourceIdentity({
+      ide: conn.ide,
+      workspaceSlug: conn.workspaceSlug,
+      label: `${conn.ide}: ${conn.workspace}`,
+    });
+  }
+
+  renderSourceFilters();
+}
+
+function normalizeSourceIdentity(ide?: string, workspaceSlug?: string): SourceIdentity {
+  const rawIde = (ide ?? '').trim();
+  const rawWorkspace = (workspaceSlug ?? '').trim();
+  const unknownSource =
+    (!rawIde && !rawWorkspace) ||
+    (rawIde.toLowerCase() === 'unknown' && rawWorkspace.toLowerCase() === 'unknown');
+
+  if (unknownSource) {
+    return {
+      ide: 'test',
+      workspaceSlug: 'mock',
+      key: 'test/mock',
+      label: 'test:mock',
+    };
+  }
+
+  const normalizedIde = rawIde || 'unknown';
+  const normalizedWorkspace = rawWorkspace || 'unknown';
+  return {
+    ide: normalizedIde,
+    workspaceSlug: normalizedWorkspace,
+    key: `${normalizedIde}/${normalizedWorkspace}`,
+    label: `${normalizedIde}:${normalizedWorkspace}`,
+  };
+}
+
+function registerSourceIdentity(source: { ide?: string; workspaceSlug?: string; label?: string }): SourceIdentity {
+  const normalized = normalizeSourceIdentity(source.ide, source.workspaceSlug);
+  if (!sourceIdentityByKey.has(normalized.key)) {
+    sourceIdentityByKey.set(normalized.key, {
+      ...normalized,
+      label: source.label?.trim() || normalized.label,
+    });
+  }
+  if (!filterState.has(normalized.key)) {
+    filterState.set(normalized.key, true);
+  }
+  return sourceIdentityByKey.get(normalized.key) ?? normalized;
+}
+
+function renderSourceFilters(): void {
   if (!connectionsEl) return;
   connectionsEl.textContent = '';
 
-  if (connections.length === 0) {
+  const sources = Array.from(sourceIdentityByKey.values())
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  if (sources.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'conn-empty';
     empty.textContent = 'No active connections';
@@ -192,25 +279,22 @@ function renderConnections(connections: Connection[]): void {
     return;
   }
 
-  for (const conn of connections) {
-    const key = `${conn.ide}/${conn.workspaceSlug}`;
-    if (!filterState.has(key)) filterState.set(key, true);
-
+  for (const source of sources) {
     const row = document.createElement('div');
     row.className = 'conn-row';
 
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
-    toggle.checked = filterState.get(key) !== false;
+    toggle.checked = filterState.get(source.key) !== false;
     toggle.addEventListener('change', () => {
-      filterState.set(key, toggle.checked);
+      filterState.set(source.key, toggle.checked);
       saveFilters();
       reapplyFilters();
     });
 
     const label = document.createElement('label');
-    label.textContent = `${conn.ide}: ${conn.workspace}`;
-    label.title = `${conn.ide} / ${conn.workspaceSlug}`;
+    label.textContent = source.label;
+    label.title = `${source.ide} / ${source.workspaceSlug}`;
 
     row.appendChild(toggle);
     row.appendChild(label);
@@ -220,8 +304,8 @@ function renderConnections(connections: Connection[]): void {
 
 function addServerOption(serverName: string): void {
   if (!serverName) return;
-  for (let i = 0; i < filterServerEl.options.length; i++) {
-    if (filterServerEl.options[i].value === serverName) return;
+  for (const option of filterServerEl.options) {
+    if (option.value === serverName) return;
   }
   const opt = document.createElement('option');
   opt.value = serverName;
@@ -295,13 +379,20 @@ function handleEvent(event: McpToolEvent, isHistory: boolean): void {
     return; // handled via connections endpoint; sidebar updates come from extension
   }
 
+  registerSourceIdentity({ ide: event.ide, workspaceSlug: event.workspaceSlug });
+  renderSourceFilters();
+
   const wasAtBottom = isScrolledToBottom();
 
   switch (event.type) {
     case 'tool_call_started': {
+      if (entries.has(event.id)) {
+        break;
+      }
+      const source = normalizeSourceIdentity(event.ide, event.workspaceSlug);
       const entry = createStartedEntry(event);
-      entry.dataset['ide'] = event.ide ?? '';
-      entry.dataset['workspaceSlug'] = event.workspaceSlug ?? '';
+      entry.dataset['ide'] = source.ide;
+      entry.dataset['workspaceSlug'] = source.workspaceSlug;
       entry.dataset['toolName'] = event.toolName ?? '';
       entry.dataset['serverName'] = event.serverName ?? '';
       entry.dataset['timestamp'] = String(event.timestamp);
@@ -311,14 +402,14 @@ function handleEvent(event: McpToolEvent, isHistory: boolean): void {
       insertEntry(entry);
       break;
     }
-    case 'tool_call_completed': {
-      const entry = entries.get(event.id);
-      if (entry) updateCompleted(entry, event);
-      break;
-    }
+    case 'tool_call_completed':
     case 'tool_call_failed': {
-      const entry = entries.get(event.id);
-      if (entry) updateFailed(entry, event);
+      const entry = entries.get(event.id) ?? createSyntheticEntryForTerminalEvent(event);
+      if (event.type === 'tool_call_completed') {
+        updateCompleted(entry, event);
+      } else {
+        updateFailed(entry, event);
+      }
       break;
     }
     case 'session_cleared':
@@ -336,6 +427,8 @@ function handleEvent(event: McpToolEvent, isHistory: boolean): void {
 // ---------------------------------------------------------------------------
 
 function createStartedEntry(event: McpToolEvent): HTMLElement {
+  const source = registerSourceIdentity({ ide: event.ide, workspaceSlug: event.workspaceSlug });
+
   const div = document.createElement('div');
   div.className = 'entry in-progress';
 
@@ -363,12 +456,10 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
   header.appendChild(nameEl);
   header.appendChild(serverEl);
 
-  if (event.workspaceSlug) {
-    const sourceEl = document.createElement('span');
-    sourceEl.className = 'entry-source';
-    sourceEl.textContent = `${event.ide ?? ''}:${event.workspaceSlug}`;
-    header.appendChild(sourceEl);
-  }
+  const sourceEl = document.createElement('span');
+  sourceEl.className = 'entry-source';
+  sourceEl.textContent = source.label;
+  header.appendChild(sourceEl);
 
   const details = document.createElement('div');
   details.className = 'entry-details';
@@ -389,6 +480,29 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
   return div;
 }
 
+function createSyntheticEntryForTerminalEvent(event: McpToolEvent): HTMLElement {
+  const source = normalizeSourceIdentity(event.ide, event.workspaceSlug);
+  const syntheticStart: McpToolEvent = {
+    id: event.id,
+    type: 'tool_call_started',
+    timestamp: event.timestamp,
+    toolName: event.toolName,
+    serverName: event.serverName,
+    ide: source.ide,
+    workspaceSlug: source.workspaceSlug,
+  };
+  const entry = createStartedEntry(syntheticStart);
+  entry.dataset['ide'] = source.ide;
+  entry.dataset['workspaceSlug'] = source.workspaceSlug;
+  entry.dataset['toolName'] = event.toolName ?? '';
+  entry.dataset['serverName'] = event.serverName ?? '';
+  entry.dataset['timestamp'] = String(event.timestamp);
+  if (event.serverName) addServerOption(event.serverName);
+  entries.set(event.id, entry);
+  insertEntry(entry);
+  return entry;
+}
+
 function updateCompleted(entry: HTMLElement, event: McpToolEvent): void {
   entry.className = 'entry completed';
 
@@ -397,18 +511,21 @@ function updateCompleted(entry: HTMLElement, event: McpToolEvent): void {
   statusIcon.className = 'entry-status';
   statusIcon.textContent = '\u2713'; // ✓
 
+  const existingDuration = header.querySelector('.entry-duration');
+  if (existingDuration) existingDuration.remove();
+
   const durationEl = document.createElement('span');
   durationEl.className = 'entry-duration';
   durationEl.textContent = `${event.durationMs ?? 0}ms`;
   header.appendChild(durationEl);
 
+  const details = entry.querySelector('.entry-details') as HTMLElement;
+
   if (event.result !== undefined) {
-    const details = entry.querySelector('.entry-details') as HTMLElement;
-    details.appendChild(createDetailsSection('Result', event.result));
+    upsertDetailsSection(details, 'Result', event.result);
   }
   if (event.meta && Object.keys(event.meta).length > 0) {
-    const details = entry.querySelector('.entry-details') as HTMLElement;
-    details.appendChild(createDetailsSection('Meta', event.meta));
+    upsertDetailsSection(details, 'Meta', event.meta);
   }
   reapplyFilters();
 }
@@ -422,20 +539,31 @@ function updateFailed(entry: HTMLElement, event: McpToolEvent): void {
   statusIcon.textContent = '\u2717'; // ✗
 
   if (event.durationMs !== undefined) {
+    const existingDuration = header.querySelector('.entry-duration');
+    if (existingDuration) existingDuration.remove();
+
     const durationEl = document.createElement('span');
     durationEl.className = 'entry-duration';
     durationEl.textContent = `${event.durationMs}ms`;
     header.appendChild(durationEl);
   }
 
+  const details = entry.querySelector('.entry-details') as HTMLElement;
+
   if (event.error) {
+    const existingInlineError = entry.querySelector('.entry-error-inline');
+    if (existingInlineError) existingInlineError.remove();
+
     const errorInline = document.createElement('div');
     errorInline.className = 'entry-error-inline';
     errorInline.textContent = event.error;
     entry.insertBefore(errorInline, entry.querySelector('.entry-details'));
 
-    const details = entry.querySelector('.entry-details') as HTMLElement;
-    details.appendChild(createDetailsSection('Error', event.error));
+    upsertDetailsSection(details, 'Error', event.error);
+  }
+
+  if (event.meta && Object.keys(event.meta).length > 0) {
+    upsertDetailsSection(details, 'Meta', event.meta);
   }
   reapplyFilters();
 }
@@ -443,6 +571,7 @@ function updateFailed(entry: HTMLElement, event: McpToolEvent): void {
 function createDetailsSection(label: string, value: unknown): HTMLElement {
   const section = document.createElement('div');
   section.className = 'entry-details-section';
+  section.dataset['sectionLabel'] = label.toLowerCase();
 
   const labelEl = document.createElement('div');
   labelEl.className = 'entry-details-label';
@@ -458,13 +587,27 @@ function createDetailsSection(label: string, value: unknown): HTMLElement {
   return section;
 }
 
+function upsertDetailsSection(details: HTMLElement, label: string, value: unknown): void {
+  const key = label.toLowerCase();
+  const existing = details.querySelector(`.entry-details-section[data-section-label="${key}"]`);
+  const replacement = createDetailsSection(label, value);
+  if (existing) {
+    existing.replaceWith(replacement);
+    return;
+  }
+  details.appendChild(replacement);
+}
+
 function formatTimestamp(timestamp: number): string {
-  if (!timestamp) return '--:--:--';
+  if (!timestamp) return '----/--/-- --:--:--';
   const date = new Date(timestamp);
+  const yyyy = String(date.getFullYear());
+  const mmDate = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
   const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
+  const mmTime = String(date.getMinutes()).padStart(2, '0');
   const ss = String(date.getSeconds()).padStart(2, '0');
-  return `${hh}:${mm}:${ss}`;
+  return `${yyyy}/${mmDate}/${dd} ${hh}:${mmTime}:${ss}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -483,6 +626,13 @@ function clearLog(): void {
 clearBtn.addEventListener('click', () => {
   clearLog();
   vscode.postMessage({ type: 'clearSession' });
+});
+
+refreshBtn.addEventListener('click', () => {
+  clearLog();
+  sourceIdentityByKey.clear();
+  renderSourceFilters();
+  vscode.postMessage({ type: 'requestInitialData' });
 });
 
 let reloadDebounceTimer: ReturnType<typeof setTimeout> | undefined;

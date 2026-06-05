@@ -18,13 +18,17 @@ All the actual data we capture — `toolName`, `serverName`, `durationMs`, `time
 - Fix the connections sidebar by adding `#connections` to `index.html`
 - Add a filter bar: tool name text search, server name select, status select, time range select
 - Add a left-side timestamp column in each log row (alongside duration) for better event traceability
+- Render timestamp as local date + time in the row column (not time-only)
+- Ensure synthetic/mock telemetry sources are filterable in the sidebar and normalized to `test:mock`
+- Add a toolbar refresh button that re-runs initial data loading without reopening the panel
+- Ensure initial panel load and refresh both include latest persisted events for today
+- Add a `myai.restartDaemon` command to force-restart the shared daemon from VS Code
 - Display `meta` field in expanded detail view when non-empty
 
 **Non-Goals:**
 
 - Turn clustering or synthetic agent-session grouping
 - Persistent filter bar state (IDE/workspace filter persistence stays; filter bar state is in-memory only)
-- Daemon changes — the daemon is not modified by this change
 - Cursor-specific behavior
 
 ## Decisions
@@ -80,6 +84,32 @@ All the actual data we capture — `toolName`, `serverName`, `durationMs`, `time
 
 **Compatibility**: This is a presentation-only change. The event and log schema already includes `timestamp`, so existing `.jsonl` logs remain valid and do not require deletion or migration.
 
+### 6. Normalize synthetic/unknown event sources to test:mock
+
+**Decision**: Treat `unknown:unknown` (and missing source identity from synthetic test telemetry) as a normalized source identity `test:mock` for display and filtering.
+
+**Rationale**: Mock telemetry should be clearly identifiable and filterable in the same way as real IDE/workspace sources.
+
+**Implication**: Sidebar filter rows are not limited to daemon `/connections`; event sources observed in history/live stream must also be represented.
+
+### 7. Add toolbar refresh action
+
+**Decision**: Add a toolbar refresh button to the left of Clear. Refresh triggers the same initialization data load flow (`status`, `connections`, `history`) that runs when the panel first becomes ready.
+
+**Rationale**: Users need an explicit one-click way to resync panel state after external log/connection changes without closing and reopening the panel.
+
+### 8. Initial load parity with refresh for latest logs
+
+**Decision**: Initial panel open and toolbar refresh both rely on history loaded from disk, and that history must include the latest events written through daemon `/telemetry`.
+
+**Rationale**: Users expect today's most recent events to appear both on initial open and after refresh. Live-only visibility is insufficient when history is the authoritative reload source.
+
+### 9. Add restart daemon command
+
+**Decision**: Introduce `myai.restartDaemon` as an explicit command to force-restart the shared daemon and rehydrate extension connectivity.
+
+**Rationale**: When daemon state drifts or sockets are stale, users need a deterministic recovery action that does not require manual process management.
+
 ## Risks / Trade-offs
 
 - **Server select grows unboundedly**: If many servers are seen in a long session, the select list grows. Acceptable — server count is bounded by MCP config, not by call volume.
@@ -87,3 +117,5 @@ All the actual data we capture — `toolName`, `serverName`, `durationMs`, `time
 - **Connections sidebar width**: Fixed at ~180px may be too narrow for long workspace slugs. Mitigated by `text-overflow: ellipsis` on labels.
 - **Sort re-render cost**: Re-inserting all DOM entries on toggle is O(n) but acceptable — entry count is bounded by session length and entries are not re-created, only moved.
 - **Timestamp column width pressure**: Adding a left timestamp column reduces horizontal space for tool name. Mitigate with compact time formatting and truncation on long tool names.
+- **Date+time width pressure**: Showing full date + time increases column width pressure versus time-only. Mitigate with a compact format and narrow, tabular timestamp styling.
+- **Restart command blast radius**: Force-restarting the shared daemon temporarily impacts all connected IDE windows. Mitigate by surfacing clear status transitions and reconnect behavior.

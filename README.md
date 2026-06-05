@@ -77,12 +77,14 @@ The main content area contains:
   - **Status** — filter by call status: All, In-progress, Completed, or Failed
   - **Time range** — filter by recency: All, Last hour, or Today
 - A **log** showing the tool call timeline:
-  - A left-side timestamp column for each call row (wall-clock time)
+  - A left-side timestamp column for each call row (local date + time)
   - Which tool is currently executing (with a spinner)
   - A timeline of all tool calls in the current session
   - Expandable detail for each call: arguments, response, duration, status, and `meta` when present
 
-The connections sidebar shows all currently connected IDE windows. Each connection has a checkbox to show or hide tool calls from that window. This filter state persists in `localStorage` across panel reloads. Filter bar state (tool name, server, status, time) resets each time the panel opens.
+The connections sidebar shows all currently connected IDE windows plus synthetic/mock event sources observed in history/live events. Mock telemetry is normalized to `test:mock` so it can be filtered consistently. Each connection/source has a checkbox to show or hide tool calls from that identity. This filter state persists in `localStorage` across panel reloads. Filter bar state (tool name, server, status, time) resets each time the panel opens.
+
+The toolbar includes a **Refresh** button (left of **Clear**) that re-runs the initial panel load behavior (`status`, `connections`, `history`) without closing/reopening the panel.
 
 ## Compatibility
 
@@ -106,6 +108,14 @@ Run `MyAI: Disable MCP Monitoring`.
 
 - MyAI restores each wrapped entry back to its original command/args/env.
 - If nothing is wrapped, MyAI shows an informational message and leaves files unchanged.
+
+### Restart Daemon
+
+Run `MyAI: Restart Daemon` from the Command Palette.
+
+- MyAI force-restarts the shared daemon process.
+- MyAI re-registers the current window and restores panel connectivity/status.
+- Use this when daemon state seems stale or panel connectivity is stuck.
 
 ### If Extension Is Uninstalled Before Disable
 

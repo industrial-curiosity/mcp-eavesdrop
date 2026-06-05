@@ -56,6 +56,7 @@ myai-extension/
 | --- | --- |
 | `myai.openPanel` | AI Agent Monitor: Open Panel |
 | `myai.clearSession` | AI Agent Monitor: Clear Session |
+| `myai.restartDaemon` | AI Agent Monitor: Restart Daemon |
 
 ---
 
@@ -167,13 +168,14 @@ interface McpToolEvent {
 **UI requirements:**
 
 - Panel body is a two-column flex layout: `.connections-sidebar` (180px fixed) and `.main-content` (remaining space)
-- The connections sidebar renders all active daemon connections, each with a checkbox to include/exclude that connection's events; checkbox state is persisted in `localStorage`
+- The connections sidebar renders all active daemon connections and any observed non-connection event sources; each source has a checkbox to include/exclude its events; checkbox state is persisted in `localStorage`
 - Filter bar sits above the log; contains five controls: sort toggle (newest first / oldest first), tool name text input, server select, status select (All / In-progress / Completed / Failed), time range select (All / Last hour / Today)
 - All four filter controls apply simultaneously (AND logic) via `reapplyFilters()`
 - Filter bar state is in-memory only and resets when the panel is reopened
-- Each log entry shows a left-side timestamp column sourced from `event.timestamp`
+- Each log entry shows a left-side local date+time timestamp column sourced from `event.timestamp`
 - In-progress tools display a spinner and no duration until completed
 - Failed tools display in red with the error message
+- A Refresh button in the toolbar re-runs initial data loading (`status`, `connections`, `history`) without reopening the panel
 - Each entry is expandable to show full arguments, result, and `meta` when present (JSON, pretty-printed)
 - Session log scrolls to latest entry automatically
 - "Clear" button emits `clearSession` to host and resets local state

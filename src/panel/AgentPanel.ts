@@ -92,6 +92,13 @@ export class AgentPanel {
         break;
       }
 
+      case 'requestInitialData': {
+        const history = this._loadHistory();
+        this._panel.webview.postMessage({ type: 'history', events: history });
+        AgentPanel.onPanelReady?.();
+        break;
+      }
+
       case 'clearSession':
         vscode.commands.executeCommand('myai.clearSession');
         break;

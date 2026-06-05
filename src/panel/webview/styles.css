@@ -57,6 +57,22 @@ body {
   flex-shrink: 0;
 }
 
+.refresh-btn {
+  background-color: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+  border: none;
+  padding: 3px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 0.82em;
+  font-family: var(--vscode-font-family);
+  flex-shrink: 0;
+}
+
+.refresh-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
 .clear-btn:hover {
   background-color: var(--vscode-button-hoverBackground);
 }
@@ -93,7 +109,7 @@ body {
   flex-direction: row;
   gap: 6px;
   /* Left padding matches: log-container-pad + entry-border + entry-pad + timestamp + gap + status-icon + gap */
-  padding: 6px 8px 6px calc(31px + var(--entry-timestamp-width, 68px) + 1.2em);
+  padding: 6px 8px 6px calc(31px + var(--entry-timestamp-width, 152px) + 1.2em);
   border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, #444));
   flex-shrink: 0;
 }
@@ -174,7 +190,7 @@ body {
 }
 
 .entry-timestamp {
-  width: var(--entry-timestamp-width, 68px);
+  width: var(--entry-timestamp-width, 152px);
   flex-shrink: 0;
   font-size: 0.8em;
   color: var(--vscode-descriptionForeground);

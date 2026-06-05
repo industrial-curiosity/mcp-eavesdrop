@@ -54,8 +54,29 @@
 
 ## 9. Timestamp column in log entries
 
-- [x] 9.1 Render a left-side timestamp column in `createStartedEntry()` in `src/panel/webview/app.ts`, using `event.timestamp` for both live and history entries
-- [x] 9.2 Add/update timestamp styling in `src/panel/webview/styles.css` so timestamp, status, tool name, server, and duration columns remain readable in narrow panel widths
+- [x] 9.1 Render a left-side timestamp column in `createStartedEntry()` in `src/panel/webview/app.ts`, using `event.timestamp` for both live and history entries, formatted with local **date + time** (not time-only)
+- [x] 9.2 Add/update timestamp styling in `src/panel/webview/styles.css` so date+time timestamp, status, tool name, server, and duration columns remain readable in narrow panel widths
 - [x] 9.3 Ensure completion/failure updates preserve timestamp visibility and keep duration rendering behavior unchanged in `updateCompleted()` and `updateFailed()`
 - [x] 9.4 Verify persisted logs remain compatible: no schema change required and no log deletion required because events already include `timestamp`
 - [x] 9.5 Update `docs/testing.md` manual checks to validate timestamp column visibility and ordering context
+
+## 10. Mock source normalization and toolbar refresh
+
+- [x] 10.1 Normalize `unknown:unknown` and missing source identity to `test:mock` for entry source labels in `src/panel/webview/app.ts`
+- [x] 10.2 Ensure normalized `test:mock` source appears in the left sidebar filters even when absent from daemon `/connections` payload (derive sidebar rows from observed event sources plus daemon connections)
+- [x] 10.3 Add a `Refresh` button immediately left of `Clear` in `src/panel/webview/index.html` and matching toolbar styles in `src/panel/webview/styles.css`
+- [x] 10.4 Handle refresh in `src/panel/webview/app.ts` and `src/panel/AgentPanel.ts` so clicking Refresh re-runs the same initial data load behavior (`status`, `connections`, `history`) without reopening the panel
+- [x] 10.5 Update `docs/testing.md` with manual checks for `test:mock` labeling/filtering and toolbar refresh behavior
+
+## 11. Initial-load latest-log parity
+
+- [x] 11.1 Persist daemon `/telemetry` events to disk in `src/daemon/index.ts` so history reload on initial open and refresh includes latest events
+- [x] 11.2 Add regression verification in `docs/testing.md`: post a telemetry event, open panel, and confirm newest event appears without clicking Refresh
+
+## 12. Restart daemon command
+
+- [x] 12.1 Register `myai.restartDaemon` in `src/extension.ts`
+- [x] 12.2 Implement restart flow in `src/extension.ts`: force shutdown daemon, bootstrap daemon, re-register instance, and restore monitoring/status messages
+- [x] 12.3 Update command contributions in `package.json` with title `MyAI: Restart Daemon`
+- [x] 12.4 Update README and docs/spec.md with restart command behavior and operational guidance
+- [x] 12.5 Add/extend test coverage or manual test steps for restart command behavior in `docs/testing.md`

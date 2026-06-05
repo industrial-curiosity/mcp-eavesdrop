@@ -6,7 +6,7 @@ The filter bar controls SHALL be horizontally aligned with the corresponding col
 #### Scenario: Tool name input aligns with entry tool name column
 - **WHEN** the filter bar and a log entry are both visible
 - **THEN** the left edge of the tool name input text SHALL be horizontally aligned with the left edge of `.entry-name` text in log entries
-- **THEN** this alignment SHALL account for the entry's `border-left`, left padding, timestamp column width, status icon width, and gap
+- **THEN** this alignment SHALL account for the entry's `border-left`, left padding, date+time timestamp column width, status icon width, and gap
 
 #### Scenario: Server select aligns with entry server column
 - **WHEN** the filter bar and a log entry are both visible

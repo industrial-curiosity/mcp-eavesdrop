@@ -14,6 +14,16 @@ The panel SHALL render a scrolling list of `McpToolEvent` entries showing timest
 - **THEN** the timestamp column SHALL be derived from `event.timestamp`
 - **THEN** existing persisted `.jsonl` logs that already include `timestamp` SHALL render without requiring log deletion or migration
 
+#### Scenario: Initial panel load includes latest persisted events
+- **WHEN** the panel is opened
+- **THEN** the extension host SHALL load history from disk including the most recent events written for today
+- **THEN** events posted via daemon `/telemetry` SHALL be present in the loaded history, not only in live SSE
+
+#### Scenario: Timestamp format includes date and time
+- **WHEN** a log entry is rendered
+- **THEN** the left timestamp column SHALL display local date and time (not time-only)
+- **THEN** the format SHALL be compact and stable enough for side-by-side row comparison
+
 #### Scenario: Completed tool call display
 - **WHEN** a `tool_call_completed` event is received for a tracked call
 - **THEN** the panel SHALL update the entry to show a success indicator and `durationMs` in milliseconds
@@ -62,6 +72,24 @@ The panel SHALL show a list of all currently connected extension instances (acro
 #### Scenario: Connections updated
 - **WHEN** the extension receives a `connections_changed` event on the SSE stream
 - **THEN** the extension SHALL re-fetch `GET /connections` and send the updated list to the webview
+
+#### Scenario: Non-connection event sources appear in sidebar filters
+- **WHEN** history or live events contain an `ide/workspaceSlug` source that is not present in the daemon `/connections` payload
+- **THEN** the sidebar SHALL still include a filter row for that source so those events can be shown/hidden from the left filter panel
+
+#### Scenario: Unknown test source normalized to test:mock
+- **WHEN** an event source resolves to `unknown:unknown` (or missing source fields from synthetic/mock telemetry)
+- **THEN** the panel SHALL normalize and display that source as `test:mock` in both the sidebar filters and per-entry source label
+
+### Requirement: Toolbar provides refresh action
+The panel toolbar SHALL provide a refresh button positioned immediately left of the Clear button. Activating refresh SHALL re-run the same initial data load behavior used when the panel first becomes ready.
+
+#### Scenario: Refresh replays initial panel load
+- **WHEN** the user clicks the toolbar refresh button
+- **THEN** the webview SHALL request history and current connections from the extension host
+- **THEN** the extension host SHALL respond using the same message shapes used on panel initialization (`history`, `connections`, and `status`)
+- **THEN** the panel SHALL re-render its state from the refreshed data without requiring panel reopen
+- **THEN** the refreshed history SHALL include the latest persisted events for today
 
 ---
 
