@@ -34,12 +34,12 @@
 
 ## 6. Testing
 
-- [ ] 6.1 Build and install extension, open Agent Monitor panel — verify connections sidebar renders (no longer empty/invisible)
-- [ ] 6.2 Trigger several MCP tool calls across different servers; verify filter bar server select populates correctly
-- [ ] 6.3 Verify each filter control (tool name, server, status, time range) hides/shows entries as expected
-- [ ] 6.4 Verify combined filters apply as AND logic
+- [x] 6.1 Build and install extension, open Agent Monitor panel — verify connections sidebar renders (no longer empty/invisible)
+- [x] 6.2 Trigger several MCP tool calls across different servers; verify filter bar server select populates correctly
+- [x] 6.3 Verify each filter control (tool name, server, status, time range) hides/shows entries as expected
+- [x] 6.4 Verify combined filters apply as AND logic
 - [x] 6.5 Verify no `conversationId` badge or color assignment appears in any rendered entry
-- [ ] 6.6 Verify panel opens, closes, and reopens with filter bar reset to defaults
+- [x] 6.6 Verify panel opens, closes, and reopens with filter bar reset to defaults
 
 ## 8. Sort order toggle
 
