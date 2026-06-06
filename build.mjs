@@ -6,7 +6,7 @@ const isWatch = process.argv.includes('--watch');
 // Read wrapper version from source so esbuild can emit it as a banner comment.
 // esbuild strips all comments by default, but the banner is always preserved.
 const wrapperSrc = await readFile('src/proxy/stdio-wrapper.ts', 'utf8');
-const wrapperVersionMatch = /^\/\/\s*MYAI_WRAPPER_VERSION=(.+)$/m.exec(wrapperSrc);
+const wrapperVersionMatch = /^\/\/\s*MCPEAVESDROP_WRAPPER_VERSION=(.+)$/m.exec(wrapperSrc);
 const wrapperVersion = wrapperVersionMatch?.[1]?.trim() ?? 'unknown';
 
 const extensionBuild = {
@@ -38,7 +38,7 @@ const stdioWrapperBuild = {
   platform: /** @type {const} */ ('node'),
   target: 'node18',
   sourcemap: true,
-  banner: { js: `// MYAI_WRAPPER_VERSION=${wrapperVersion}` },
+  banner: { js: `// MCPEAVESDROP_WRAPPER_VERSION=${wrapperVersion}` },
 };
 
 const lifecycleBuild = {

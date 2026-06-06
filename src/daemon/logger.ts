@@ -5,7 +5,7 @@ import * as os from 'os';
 export class EventLogger {
   private readonly logsDir: string;
 
-  constructor(logsDir = path.join(os.homedir(), '.myai', 'logs')) {
+  constructor(logsDir = path.join(os.homedir(), '.mcpEavesdrop', 'logs')) {
     this.logsDir = logsDir;
   }
 
@@ -16,7 +16,7 @@ export class EventLogger {
       const logPath = path.join(ideDir, `${workspaceSlug}.jsonl`);
       fs.appendFileSync(logPath, JSON.stringify(event) + '\n', 'utf8');
     } catch (err) {
-      process.stderr.write(`myai-daemon: logger write failed: ${String(err)}\n`);
+      process.stderr.write(`mcpEavesdrop-daemon: logger write failed: ${String(err)}\n`);
     }
   }
 }

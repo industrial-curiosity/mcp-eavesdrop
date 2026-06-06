@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import { spawnSync } from 'child_process';
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'myai-lifecycle-test-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mcpEavesdrop-lifecycle-test-'));
 const fakeHome = path.join(tmp, 'home');
 fs.mkdirSync(fakeHome, { recursive: true });
 
@@ -26,8 +26,8 @@ const wrappedEntry = {
   command: 'node',
   args: ['/tmp/wrapper.js', 'mock'],
   env: {
-    MYAI_IPC_SOCKET: '/tmp/myai.sock',
-    MYAI_REAL_SERVER: JSON.stringify({
+    MCPEAVESDROP_IPC_SOCKET: '/tmp/mcpEavesdrop.sock',
+    MCPEAVESDROP_REAL_SERVER: JSON.stringify({
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-filesystem', '/tmp'],
       env: { KEEP: '1' },
@@ -45,9 +45,9 @@ for (const filePath of [vscodeConfigPath, cursorConfigPath]) {
   );
 }
 
-const myAiDir = path.join(fakeHome, '.myai');
-fs.mkdirSync(myAiDir, { recursive: true });
-fs.writeFileSync(path.join(myAiDir, 'stdio-wrapper.js'), '// wrapper', 'utf8');
+const mcpEavesdropDir = path.join(fakeHome, '.mcpEavesdrop');
+fs.mkdirSync(mcpEavesdropDir, { recursive: true });
+fs.writeFileSync(path.join(mcpEavesdropDir, 'stdio-wrapper.js'), '// wrapper', 'utf8');
 
 const result = spawnSync('node', ['dist/lifecycle.js'], {
   cwd: path.join(process.cwd()),
@@ -65,6 +65,6 @@ const restoredCursor = JSON.parse(fs.readFileSync(cursorConfigPath, 'utf8'));
 
 assert.equal(restoredVsCode.servers.mock.command, 'npx');
 assert.equal(restoredCursor.servers.mock.command, 'npx');
-assert.equal(fs.existsSync(myAiDir), false);
+assert.equal(fs.existsSync(mcpEavesdropDir), false);
 
 console.log('PASS test-lifecycle');

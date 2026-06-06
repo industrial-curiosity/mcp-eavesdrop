@@ -2,7 +2,7 @@
 
 ### Requirement: Proxy binds to loopback on a random port
 **Reason**: Replaced by the shared IPC daemon, which owns the HTTP MCP proxy on a dynamic but stable TCP port. No per-window proxy process exists.
-**Migration**: The daemon's proxy port is read from `~/.myai/daemon.json`. The extension no longer spawns a proxy child process.
+**Migration**: The daemon's proxy port is read from `~/.mcpEavesdrop/daemon.json`. The extension no longer spawns a proxy child process.
 
 ### Requirement: Proxy WebSocket endpoint accepts multiple simultaneous clients
 **Reason**: Event fan-out is now handled by the daemon's SSE broadcast. The extension host subscribes to the daemon SSE stream via Unix socket and pushes events to the webview via `panel.webview.postMessage`. No per-window relay server or proxy WebSocket endpoint is needed.
@@ -51,7 +51,7 @@ The daemon SHALL accept `POST /telemetry` requests on its Unix socket HTTP serve
 
 #### Scenario: Wrapper posts a tool_call_started event
 - **WHEN** the daemon receives `POST /telemetry` with a valid `McpToolEvent` body including `ide` and `workspaceSlug`
-- **THEN** the daemon SHALL append the event to `~/.myai/logs/{ide}/{workspaceSlug}.jsonl`
+- **THEN** the daemon SHALL append the event to `~/.mcpEavesdrop/logs/{ide}/{workspaceSlug}.jsonl`
 - **THEN** the daemon SHALL broadcast the event to all open SSE streams
 - **THEN** the daemon SHALL respond with `200 {}`
 

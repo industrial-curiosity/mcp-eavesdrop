@@ -77,7 +77,7 @@ let sortOrder: SortOrder = 'desc';
 // Active filter: key = "ide/workspaceSlug", value = true (visible) | false (hidden)
 const filterState = new Map<string, boolean>();
 const sourceIdentityByKey = new Map<string, SourceIdentity>();
-const FILTER_STORAGE_KEY = 'myai-filters';
+const FILTER_STORAGE_KEY = 'mcpEavesdrop-filters';
 
 function loadFilters(): void {
   try {

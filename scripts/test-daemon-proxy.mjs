@@ -23,8 +23,8 @@ import { readFile } from 'fs/promises';
 import { spawn } from 'child_process';
 
 const HOME = os.homedir();
-const SOCKET = path.join(HOME, '.myai', 'ipc.sock');
-const DAEMON_JSON = path.join(HOME, '.myai', 'daemon.json');
+const SOCKET = path.join(HOME, '.mcpEavesdrop', 'ipc.sock');
+const DAEMON_JSON = path.join(HOME, '.mcpEavesdrop', 'daemon.json');
 const log = (...args) => console.log('[test-daemon-proxy]', ...args);
 const fail = (msg) => { console.error('[test-daemon-proxy] FAIL:', msg); process.exit(1); };
 
@@ -93,7 +93,7 @@ function callThroughDaemonProxy(proxyPort, upstreamPort, serverName, toolName, t
       headers: {
         'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body),
         'x-upstream-url': `http://127.0.0.1:${upstreamPort}/`,
-        'x-myai-ide': 'test', 'x-myai-workspace-slug': 'test-ws',
+        'x-mcpEavesdrop-ide': 'test', 'x-mcpEavesdrop-workspace-slug': 'test-ws',
       },
     }, (res) => {
       const chunks = [];

@@ -1,15 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: `vscode:uninstall` script restores all wrapped MCP entries
-The extension SHALL register a `vscode:uninstall` script at `dist/lifecycle.js` in `package.json` that, when executed after extension removal, scans all known user-level `mcp.json` locations for both VS Code and Cursor on the current platform, restores any wrapped entries, and removes `~/.myai/`.
+The extension SHALL register a `vscode:uninstall` script at `dist/lifecycle.js` in `package.json` that, when executed after extension removal, scans all known user-level `mcp.json` locations for both VS Code and Cursor on the current platform, restores any wrapped entries, and removes `~/.mcpEavesdrop/`.
 
 #### Scenario: Wrapped entries found during uninstall
-- **WHEN** the uninstall script runs and finds entries containing `MYAI_IPC_SOCKET` in any known `mcp.json`
-- **THEN** the script SHALL restore each such entry to its original `command`, `args`, and `env` by reading `MYAI_REAL_SERVER` (stripping all `MYAI_*` keys)
+- **WHEN** the uninstall script runs and finds entries containing `MCPEAVESDROP_IPC_SOCKET` in any known `mcp.json`
+- **THEN** the script SHALL restore each such entry to its original `command`, `args`, and `env` by reading `MCPEAVESDROP_REAL_SERVER` (stripping all `MCPEAVESDROP_*` keys)
 - **THEN** the script SHALL write the restored `mcp.json` back to disk
 
 #### Scenario: No wrapped entries found during uninstall
-- **WHEN** the uninstall script runs and finds no `MYAI_*` env vars in any `mcp.json`
+- **WHEN** the uninstall script runs and finds no `MCPEAVESDROP_*` env vars in any `mcp.json`
 - **THEN** the script SHALL make no changes to any config file
 
 #### Scenario: `mcp.json` is missing or unreadable
@@ -18,15 +18,15 @@ The extension SHALL register a `vscode:uninstall` script at `dist/lifecycle.js` 
 
 ---
 
-### Requirement: `vscode:uninstall` script removes the `~/.myai/` directory
-After processing all config files, the uninstall script SHALL delete the `~/.myai/` directory and all its contents.
+### Requirement: `vscode:uninstall` script removes the `~/.mcpEavesdrop/` directory
+After processing all config files, the uninstall script SHALL delete the `~/.mcpEavesdrop/` directory and all its contents.
 
 #### Scenario: Directory exists
-- **WHEN** `~/.myai/` exists on disk
+- **WHEN** `~/.mcpEavesdrop/` exists on disk
 - **THEN** the script SHALL remove it recursively
 
 #### Scenario: Directory does not exist
-- **WHEN** `~/.myai/` does not exist
+- **WHEN** `~/.mcpEavesdrop/` does not exist
 - **THEN** the script SHALL skip deletion without error
 
 ---

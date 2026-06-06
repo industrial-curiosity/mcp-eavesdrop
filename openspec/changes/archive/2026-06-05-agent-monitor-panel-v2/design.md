@@ -22,7 +22,7 @@ All the actual data we capture — `toolName`, `serverName`, `durationMs`, `time
 - Ensure synthetic/mock telemetry sources are filterable in the sidebar and normalized to `test:mock`
 - Add a toolbar refresh button that re-runs initial data loading without reopening the panel
 - Ensure initial panel load and refresh both include latest persisted events for today
-- Add a `myai.restartDaemon` command to force-restart the shared daemon from VS Code
+- Add a `mcpEavesdrop.restartDaemon` command to force-restart the shared daemon from VS Code
 - Display `meta` field in expanded detail view when non-empty
 
 **Non-Goals:**
@@ -106,7 +106,7 @@ All the actual data we capture — `toolName`, `serverName`, `durationMs`, `time
 
 ### 9. Add restart daemon command
 
-**Decision**: Introduce `myai.restartDaemon` as an explicit command to force-restart the shared daemon and rehydrate extension connectivity.
+**Decision**: Introduce `mcpEavesdrop.restartDaemon` as an explicit command to force-restart the shared daemon and rehydrate extension connectivity.
 
 **Rationale**: When daemon state drifts or sockets are stale, users need a deterministic recovery action that does not require manual process management.
 

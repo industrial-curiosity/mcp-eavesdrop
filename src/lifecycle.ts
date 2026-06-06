@@ -47,7 +47,7 @@ function restoreRoot(root: Record<string, McpEntry> | undefined, rootKey: string
 
   let restored = 0;
   for (const [serverName, entry] of Object.entries(root)) {
-    if (!entry?.env?.MYAI_IPC_SOCKET && !entry?.env?.MYAI_REAL_URL) {
+    if (!entry?.env?.MCPEAVESDROP_IPC_SOCKET && !entry?.env?.MCPEAVESDROP_REAL_URL) {
       continue;
     }
 
@@ -84,17 +84,17 @@ function processConfig(filePath: string): void {
   }
 }
 
-function removeMyAiDir(homeDir = os.homedir()): void {
-  const myAiDir = path.join(homeDir, '.myai');
-  fs.rmSync(myAiDir, { recursive: true, force: true });
-  process.stdout.write(`removed ${myAiDir}\n`);
+function removeMcpEavesdropDir(homeDir = os.homedir()): void {
+  const mcpEavesdropDir = path.join(homeDir, '.mcpEavesdrop');
+  fs.rmSync(mcpEavesdropDir, { recursive: true, force: true });
+  process.stdout.write(`removed ${mcpEavesdropDir}\n`);
 }
 
 function run(): void {
   for (const configPath of resolveAllMcpConfigPaths()) {
     processConfig(configPath);
   }
-  removeMyAiDir();
+  removeMcpEavesdropDir();
 }
 
 if (require.main === module) {

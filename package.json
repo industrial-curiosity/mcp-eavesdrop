@@ -1,13 +1,13 @@
 {
-  "name": "myai-extension",
-  "displayName": "MyAI - Agent Monitor",
+  "name": "mcp-eavesdrop",
+  "displayName": "MCP Eavesdrop - Agent MCP Call Monitor",
   "description": "Monitor MCP tool calls from AI agents in real time",
   "version": "0.1.0",
   "license": "MIT",
   "publisher": "industrial-curiosity",
   "repository": {
     "type": "git",
-    "url": "https://github.com/industrial-curiosity/myai-extension.git"
+    "url": "https://github.com/industrial-curiosity/mcp-eavesdrop.git"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -22,28 +22,28 @@
   "contributes": {
     "commands": [
       {
-        "command": "myai.openPanel",
-        "title": "MyAI: Open Agent Monitor Panel"
+        "command": "mcpEavesdrop.openPanel",
+        "title": "MCP Eavesdrop: Open Agent Monitor Panel"
       },
       {
-        "command": "myai.clearSession",
-        "title": "MyAI: Clear Session"
+        "command": "mcpEavesdrop.clearSession",
+        "title": "MCP Eavesdrop: Clear Session"
       },
       {
-        "command": "myai.restartDaemon",
-        "title": "MyAI: Restart Daemon"
+        "command": "mcpEavesdrop.restartDaemon",
+        "title": "MCP Eavesdrop: Restart Daemon"
       },
       {
-        "command": "myai.showMcpConfig",
-        "title": "MyAI: Show Proxy MCP Config"
+        "command": "mcpEavesdrop.showMcpConfig",
+        "title": "MCP Eavesdrop: Show Proxy MCP Config"
       },
       {
-        "command": "myai.enableMonitoring",
-        "title": "MyAI: Enable MCP Monitoring"
+        "command": "mcpEavesdrop.enableMonitoring",
+        "title": "MCP Eavesdrop: Enable MCP Monitoring"
       },
       {
-        "command": "myai.disableMonitoring",
-        "title": "MyAI: Disable MCP Monitoring"
+        "command": "mcpEavesdrop.disableMonitoring",
+        "title": "MCP Eavesdrop: Disable MCP Monitoring"
       }
     ]
   },

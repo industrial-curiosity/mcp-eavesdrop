@@ -6,7 +6,7 @@ import path from 'path';
 import http from 'http';
 import { spawn } from 'child_process';
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'myai-wrapper-test-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mcpEavesdrop-wrapper-test-'));
 const socketPath = path.join(tmp, 'proxy.sock');
 const extDir = path.join(tmp, 'ext');
 fs.mkdirSync(extDir, { recursive: true });
@@ -65,10 +65,10 @@ stdioWrapperSrc = stdioWrapperSrc.replace('__DAEMON_SOCKET_PATH__', socketPath);
 fs.writeFileSync(stdioWrapperPath, stdioWrapperSrc, 'utf8');
 
 const wrappedEnv = {
-  MYAI_REAL_SERVER: JSON.stringify({ command: 'node', args: [mockServerPath], env: {} }),
-  MYAI_EXT_DIR: extDir,
-  MYAI_CONFIG_PATH: configPath,
-  MYAI_SERVER_NAME: 'mock',
+  MCPEAVESDROP_REAL_SERVER: JSON.stringify({ command: 'node', args: [mockServerPath], env: {} }),
+  MCPEAVESDROP_EXT_DIR: extDir,
+  MCPEAVESDROP_CONFIG_PATH: configPath,
+  MCPEAVESDROP_SERVER_NAME: 'mock',
 };
 
 const wrapper = spawn('node', [stdioWrapperPath], {
@@ -161,10 +161,10 @@ const metaWrapper = spawn('node', [metaWrapperPath], {
   cwd: process.cwd(),
   env: {
     ...process.env,
-    MYAI_REAL_SERVER: JSON.stringify({ command: 'node', args: [mockServerPath], env: {} }),
-    MYAI_EXT_DIR: extDir,
-    MYAI_CONFIG_PATH: configPath,
-    MYAI_SERVER_NAME: 'mock',
+    MCPEAVESDROP_REAL_SERVER: JSON.stringify({ command: 'node', args: [mockServerPath], env: {} }),
+    MCPEAVESDROP_EXT_DIR: extDir,
+    MCPEAVESDROP_CONFIG_PATH: configPath,
+    MCPEAVESDROP_SERVER_NAME: 'mock',
   },
   stdio: ['pipe', 'pipe', 'pipe'],
 });
@@ -241,8 +241,8 @@ assert.equal(noMetaStarted.meta, undefined, 'tool_call_started without _meta sho
 console.log('PASS test-wrapper (_meta session attribution)');
 
 // ---------------------------------------------------------------------------
-// HTTP bridge mode — MYAI_REAL_URL
-// When MYAI_REAL_URL is set the wrapper forwards JSON-RPC to the daemon proxy.
+// HTTP bridge mode — MCPEAVESDROP_REAL_URL
+// When MCPEAVESDROP_REAL_URL is set the wrapper forwards JSON-RPC to the daemon proxy.
 // ---------------------------------------------------------------------------
 
 // Start a mock "daemon proxy" (TCP HTTP server) to receive the forwarded request
@@ -282,10 +282,10 @@ await new Promise((resolve, reject) => {
 });
 
 const bridgeEnv = {
-  MYAI_REAL_URL: `http://127.0.0.1:99999/ignored`, // upstream URL (will not be called directly in bridge mode)
-  MYAI_SERVER_NAME: 'bridge-server',
-  MYAI_EXT_DIR: extDir,
-  MYAI_CONFIG_PATH: configPath,
+  MCPEAVESDROP_REAL_URL: `http://127.0.0.1:99999/ignored`, // upstream URL (will not be called directly in bridge mode)
+  MCPEAVESDROP_SERVER_NAME: 'bridge-server',
+  MCPEAVESDROP_EXT_DIR: extDir,
+  MCPEAVESDROP_CONFIG_PATH: configPath,
 };
 
 // Override the daemon socket path and proxy port via the placeholder constants
@@ -334,11 +334,11 @@ console.log('PASS test-wrapper (HTTP bridge mode)');
 
 // ---------------------------------------------------------------------------
 // daemon.json fallback — DAEMON_SOCKET_PATH constant is unset; wrapper reads
-// ~/.myai/daemon.json (we override HOME to a temp dir).
+// ~/.mcpEavesdrop/daemon.json (we override HOME to a temp dir).
 // ---------------------------------------------------------------------------
 
 const fakeHome = path.join(tmp, 'fakehome');
-const fakeDaemonDir = path.join(fakeHome, '.myai');
+const fakeDaemonDir = path.join(fakeHome, '.mcpEavesdrop');
 fs.mkdirSync(fakeDaemonDir, { recursive: true });
 
 // Reuse the original socketPath mock server for telemetry (already started above)
@@ -381,10 +381,10 @@ const fallbackWrapper = spawn('node', [wrapperPath], {
   env: {
     ...process.env,
     HOME: fakeHome,
-    MYAI_REAL_SERVER: JSON.stringify({ command: 'node', args: [mockServerPath], env: {} }),
-    MYAI_EXT_DIR: extDir,
-    MYAI_CONFIG_PATH: configPath,
-    MYAI_SERVER_NAME: 'fallback-server',
+    MCPEAVESDROP_REAL_SERVER: JSON.stringify({ command: 'node', args: [mockServerPath], env: {} }),
+    MCPEAVESDROP_EXT_DIR: extDir,
+    MCPEAVESDROP_CONFIG_PATH: configPath,
+    MCPEAVESDROP_SERVER_NAME: 'fallback-server',
   },
   stdio: ['pipe', 'pipe', 'pipe'],
 });

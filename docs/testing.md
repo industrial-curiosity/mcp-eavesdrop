@@ -1,6 +1,6 @@
 # Testing Guide
 
-Step-by-step instructions for verifying the myai-extension MVP before shipping.
+Step-by-step instructions for verifying the mcpEavesdrop-extension MVP before shipping.
 
 ---
 
@@ -40,7 +40,7 @@ vsce --version
    npm run package
    ```
 
-   Expected output: a file named `myai-extension-0.1.0.vsix` in the repo root with no errors.
+   Expected output: a file named `mcpEavesdrop-extension-0.1.0.vsix` in the repo root with no errors.
 
 4. Confirm the package contents look correct:
 
@@ -66,21 +66,21 @@ vsce --version
 
    > **Cursor**: Use the same **Run Extension** launch config. If you see `NoWorkspaceUriError` in the debug console, open a folder in the EDH window (**File → Open Folder…** → this repo).
 
-3. In the Extension Development Host window, open the **Output** panel (`View → Output`) and select **MyAI** from the channel dropdown.
+3. In the Extension Development Host window, open the **Output** panel (`View → Output`) and select **MCP Eavesdrop** from the channel dropdown.
 
 4. Confirm you see a line like:
 
    ```
-   MyAI: Proxy listening on port 12345
+   MCP Eavesdrop: Proxy listening on port 12345
    ```
 
    The port number will vary.
 
-5. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run **MyAI: Open Agent Monitor Panel**.
+5. Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run **MCP Eavesdrop: Open Agent Monitor Panel**.
 
 6. A panel titled **AI Agent Monitor** should open to the right of the active editor. The toolbar shows "AI Agent Monitor" and a "Clear" button. The log area is empty.
 
-7. Confirm the status bar or Output panel shows no errors. If the proxy failed to start within 5 seconds, you will see an error notification — check the **MyAI** output channel for details.
+7. Confirm the status bar or Output panel shows no errors. If the proxy failed to start within 5 seconds, you will see an error notification — check the **MCP Eavesdrop** output channel for details.
 
 ---
 
@@ -88,11 +88,11 @@ vsce --version
 
 ### 3a. Confirm the extension is running
 
-In the **MyAI** output channel you should see:
+In the **MCP Eavesdrop** output channel you should see:
 
 ```
-MyAI: IPC socket at /var/folders/.../myai-extension.sock
-MyAI: Proxy listening on port 12345
+MCP Eavesdrop: IPC socket at /var/folders/.../mcpEavesdrop-extension.sock
+MCP Eavesdrop: Proxy listening on port 12345
 ```
 
 The test script communicates with the extension directly via the IPC socket to discover the port — no manual copying required.
@@ -147,7 +147,7 @@ After the script completes, look at the **AI Agent Monitor** panel in the Extens
 ### 3d. Test the Clear button
 
 1. Click the **Clear** button in the panel toolbar. All entries disappear.
-2. In the **MyAI** output channel you should see no errors. A `session_cleared` event was broadcast internally to reset clients.
+2. In the **MCP Eavesdrop** output channel you should see no errors. A `session_cleared` event was broadcast internally to reset clients.
 
 ### 3e. Test the proxy config helper
 
@@ -161,9 +161,9 @@ After the script completes, look at the **AI Agent Monitor** panel in the Extens
    }
    ```
 
-2. Run **MyAI: Show Proxy MCP Config** from the Command Palette.
+2. Run **MCP Eavesdrop: Show Proxy MCP Config** from the Command Palette.
 
-3. The **MyAI** output channel opens and shows a JSON snippet with `context7` re-pointed to `http://127.0.0.1:<PORT>/context7`.
+3. The **MCP Eavesdrop** output channel opens and shows a JSON snippet with `context7` re-pointed to `http://127.0.0.1:<PORT>/context7`.
 
 ---
 
@@ -189,7 +189,7 @@ Expected output: `PASS test-mcp-config`
 
 ### `test-mcp-wrap.mjs` — Entry wrapping / unwrapping
 
-Tests `wrapEntry` and `unwrapEntry` for both stdio and HTTP MCP server entries. Verifies that wrapping injects the correct `MYAI_IPC_SOCKET` / `MYAI_REAL_SERVER` env vars for stdio entries and rewrites the URL for HTTP entries, and that unwrapping restores the originals exactly.
+Tests `wrapEntry` and `unwrapEntry` for both stdio and HTTP MCP server entries. Verifies that wrapping injects the correct `MCPEAVESDROP_IPC_SOCKET` / `MCPEAVESDROP_REAL_SERVER` env vars for stdio entries and rewrites the URL for HTTP entries, and that unwrapping restores the originals exactly.
 
 ```bash
 node scripts/test-mcp-wrap.mjs
@@ -225,7 +225,7 @@ Expected output: `PASS test-wrapper-deploy`
 
 ### `test-wrapper.mjs` — stdio wrapper end-to-end
 
-Starts a mock stdio MCP server and a mock telemetry HTTP server, then spawns the stdio wrapper process with `MYAI_REAL_SERVER` pointing at the mock server. Sends a `tools/call` request through stdin and asserts the wrapper forwards it and relays the response on stdout, and posts a telemetry event to the mock server.
+Starts a mock stdio MCP server and a mock telemetry HTTP server, then spawns the stdio wrapper process with `MCPEAVESDROP_REAL_SERVER` pointing at the mock server. Sends a `tools/call` request through stdin and asserts the wrapper forwards it and relays the response on stdout, and posts a telemetry event to the mock server.
 
 ```bash
 node scripts/test-wrapper.mjs
@@ -237,7 +237,7 @@ Expected output: `PASS test-wrapper`
 
 ### `test-lifecycle.mjs` — Extension uninstall lifecycle
 
-Creates a fake home directory pre-populated with wrapped VS Code and Cursor MCP configs and a `.myai` directory, then runs `dist/lifecycle.js` against it. Asserts that both configs are fully unwrapped (original `command`/`args` restored) and that the `.myai` directory is removed.
+Creates a fake home directory pre-populated with wrapped VS Code and Cursor MCP configs and a `.mcpEavesdrop` directory, then runs `dist/lifecycle.js` against it. Asserts that both configs are fully unwrapped (original `command`/`args` restored) and that the `.mcpEavesdrop` directory is removed.
 
 ```bash
 node scripts/test-lifecycle.mjs
@@ -305,7 +305,7 @@ These are manual verification steps for the filter bar, connections sidebar, and
 
 ### 6.1 — Connections sidebar renders
 
-1. Open the Agent Monitor panel (**MyAI: Open Agent Monitor Panel**).
+1. Open the Agent Monitor panel (**MCP Eavesdrop: Open Agent Monitor Panel**).
 2. The panel body is split into two columns: a **Connections** sidebar on the left and a **log area** on the right.
 3. With the daemon running, the sidebar should list at least one connection entry. It must not be empty or invisible.
 
@@ -350,13 +350,13 @@ Test each of the four controls independently (reset others to "All" / empty befo
 
 1. Trigger a telemetry event (for example with `node scripts/test-proxy.mjs`).
 2. Close the Agent Monitor panel if open.
-3. Re-open the panel via **MyAI: Open Agent Monitor Panel**.
+3. Re-open the panel via **MCP Eavesdrop: Open Agent Monitor Panel**.
 4. Verify the newest event from the current day appears immediately on initial load (without clicking Refresh).
 
 ### 6.12 — Restart daemon command restores panel connectivity
 
 1. Open the panel and confirm it is receiving events.
-2. Run **MyAI: Restart Daemon** from the Command Palette.
+2. Run **MCP Eavesdrop: Restart Daemon** from the Command Palette.
 3. Verify a success notification appears and panel status returns to connected.
 4. Verify connections repopulate and new events continue streaming without reloading the window.
 
@@ -376,7 +376,7 @@ Test each of the four controls independently (reset others to "All" / empty befo
 
 1. Set one or more filters to non-default values.
 2. Close the panel (click the × on the tab).
-3. Re-open the panel via **MyAI: Open Agent Monitor Panel**.
+3. Re-open the panel via **MCP Eavesdrop: Open Agent Monitor Panel**.
 4. All filter controls should be reset to their defaults ("All", empty text input). The history is reloaded from disk.
 
 ### 6.7 — Filter changes trigger history reload
@@ -394,6 +394,6 @@ Test each of the four controls independently (reset others to "All" / empty befo
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | "Proxy failed to start" notification | `dist/proxy/server.js` missing | Run `npm run build` and restart the Extension Development Host |
-| Panel opens but shows "Disconnected — reconnecting…" | Extension host not connected to daemon SSE, or daemon not running | Check the **MyAI** output channel; verify daemon is running (`cat ~/.myai/daemon.json`); reload window |
+| Panel opens but shows "Disconnected — reconnecting…" | Extension host not connected to daemon SSE, or daemon not running | Check the **MCP Eavesdrop** output channel; verify daemon is running (`cat ~/.mcpEavesdrop/daemon.json`); reload window |
 | `vsce package` fails with "Missing publisher" | `publisher` field in package.json | Set it to your VS Code Marketplace publisher ID or any placeholder for local testing |
 | `tsc --noEmit` reports errors | Type mismatch | Run `npm run build` first; esbuild is lenient but tsc is strict |

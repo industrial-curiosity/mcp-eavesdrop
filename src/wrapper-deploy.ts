@@ -10,11 +10,11 @@ export interface DeployResult {
   version: string;
 }
 
-const VERSION_PATTERN = /^\/\/\s*MYAI_WRAPPER_VERSION=(.+)$/m;
+const VERSION_PATTERN = /^\/\/\s*MCPEAVESDROP_WRAPPER_VERSION=(.+)$/m;
 const SOCKET_PLACEHOLDER = '__DAEMON_SOCKET_PATH__';
 
 export function resolveStableWrapperPath(homeDir = os.homedir()): string {
-  return path.join(homeDir, '.myai', 'stdio-wrapper.js');
+  return path.join(homeDir, '.mcpEavesdrop', 'stdio-wrapper.js');
 }
 
 export function readWrapperVersionFromContent(content: string): string | undefined {

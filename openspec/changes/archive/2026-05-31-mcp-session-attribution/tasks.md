@@ -14,7 +14,7 @@
 - [x] 2.2 Include both fields in the `tool_call_started` telemetry event (omit when absent)
 - [x] 2.3 Store both fields on the `TrackedCall` entry keyed by request ID
 - [x] 2.4 Echo `conversationId` and `requestId` from `TrackedCall` onto `tool_call_completed` and `tool_call_failed` events
-- [x] 2.5 Bump `MYAI_WRAPPER_VERSION` on the first line of `stdio-wrapper.ts`
+- [x] 2.5 Bump `MCPEAVESDROP_WRAPPER_VERSION` on the first line of `stdio-wrapper.ts`
 - [x] 2.6 Include the entire `_meta` object as `meta` on `tool_call_started` (when `_meta` is present and non-empty); store on `TrackedCall`; echo onto `tool_call_completed` and `tool_call_failed`
 - [x] 2.7 Remove the temporary `DEBUG: log raw _meta` stderr line added during troubleshooting (line 548 of `stdio-wrapper.ts`)
 

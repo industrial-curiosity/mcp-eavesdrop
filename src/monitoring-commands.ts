@@ -45,13 +45,13 @@ async function enableMonitoring(
     const hint = folder
       ? ` Expected user config or workspace ${resolveWorkspaceMcpConfigCandidates(ide.ide, folder).join(' or ')}.`
       : ' Open a workspace folder, then retry.';
-    vscode.window.showErrorMessage(`MyAI: No MCP configuration with servers found.${hint}`);
+    vscode.window.showErrorMessage(`MCP Eavesdrop: No MCP configuration with servers found.${hint}`);
     return;
   }
 
   const pathList = pathsWithServers.map((p) => `  • ${p}`).join('\n');
   const decision = await vscode.window.showInformationMessage(
-    `MyAI will wrap MCP servers in:\n${pathList}\n\nExpect one trust prompt per server per config file.`,
+    `MCP Eavesdrop will wrap MCP servers in:\n${pathList}\n\nExpect one trust prompt per server per config file.`,
     { modal: true },
     'Enable',
     'Cancel',
@@ -93,12 +93,12 @@ async function enableMonitoring(
   }
 
   if (totalWrapped === 0) {
-    vscode.window.showInformationMessage('MyAI: MCP monitoring is already enabled for all configured servers.');
+    vscode.window.showInformationMessage('MCP Eavesdrop: MCP monitoring is already enabled for all configured servers.');
     return;
   }
 
   vscode.window.showInformationMessage(
-    `MyAI: MCP monitoring enabled for ${totalWrapped} server(s) across ${pathsWithServers.length} config file(s). Reload the window, then use the agent.`,
+    `MCP Eavesdrop: MCP monitoring enabled for ${totalWrapped} server(s) across ${pathsWithServers.length} config file(s). Reload the window, then use the agent.`,
   );
 }
 
@@ -125,22 +125,22 @@ async function disableMonitoring(): Promise<void> {
   }
 
   if (restored === 0) {
-    vscode.window.showInformationMessage('MyAI: MCP monitoring is not currently enabled.');
+    vscode.window.showInformationMessage('MCP Eavesdrop: MCP monitoring is not currently enabled.');
     return;
   }
 
-  vscode.window.showInformationMessage(`MyAI: Restored ${restored} server(s) to original config.`);
+  vscode.window.showInformationMessage(`MCP Eavesdrop: Restored ${restored} server(s) to original config.`);
 }
 
 export function registerMonitoringCommands(
   context: vscode.ExtensionContext,
   options: MonitoringCommandOptions,
 ): vscode.Disposable {
-  const enable = vscode.commands.registerCommand('myai.enableMonitoring', async () => {
+  const enable = vscode.commands.registerCommand('mcpEavesdrop.enableMonitoring', async () => {
     await enableMonitoring(context, options);
   });
 
-  const disable = vscode.commands.registerCommand('myai.disableMonitoring', async () => {
+  const disable = vscode.commands.registerCommand('mcpEavesdrop.disableMonitoring', async () => {
     await disableMonitoring();
   });
 
@@ -163,13 +163,13 @@ export function logMcpConfigDiagnostics(
   for (const configPath of listMcpConfigPaths(ide, workspaceFolder)) {
     const config = readMcpConfig(configPath);
     if (!config) {
-      log(`MyAI: MCP config not found: ${configPath}`);
+      log(`MCP Eavesdrop: MCP config not found: ${configPath}`);
       continue;
     }
     const { root } = resolveConfigRoot(config, ide === 'cursor' ? 'mcpServers' : 'servers');
     const total = Object.keys(root).length;
     const wrapped = Object.values(root).filter((e) => isWrapped(e)).length;
-    log(`MyAI: MCP ${configPath} — ${wrapped}/${total} server(s) monitored`);
+    log(`MCP Eavesdrop: MCP ${configPath} — ${wrapped}/${total} server(s) monitored`);
   }
 
   if (ide === 'cursor' && workspaceFolder) {
@@ -179,8 +179,8 @@ export function logMcpConfigDiagnostics(
       const unwrapped = config ? countUnwrappedServers(config, 'mcpServers') : 0;
       if (unwrapped > 0) {
         log(
-          `MyAI: Cursor uses ${cursorWs} for workspace MCP; this repo only has ${vscodeWs}. ` +
-            'Run "MyAI: Enable MCP Monitoring" to wrap workspace servers, or add .cursor/mcp.json.',
+          `MCP Eavesdrop: Cursor uses ${cursorWs} for workspace MCP; this repo only has ${vscodeWs}. ` +
+            'Run "MCP Eavesdrop: Enable MCP Monitoring" to wrap workspace servers, or add .cursor/mcp.json.',
         );
       }
     }

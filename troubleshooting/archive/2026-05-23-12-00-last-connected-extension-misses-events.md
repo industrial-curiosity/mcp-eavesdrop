@@ -48,7 +48,7 @@
 ## Attempt 5 — Live connection state check via /connections
 
 **Hypothesis**: Maybe only one IDE is actually connected to the daemon at the time test-proxy runs, making the "last connected" observation misleading.
-**What was tried**: Ran `curl --unix-socket ~/.myai/ipc.sock http://daemon/connections | python3 -m json.tool` while both IDEs were open.
+**What was tried**: Ran `curl --unix-socket ~/.mcpEavesdrop/ipc.sock http://daemon/connections | python3 -m json.tool` while both IDEs were open.
 **Result**: `{"total":2,"connections":[{"instanceId":"bf62a781-...","ide":"vscode",...},{"instanceId":"6ba320d1-...","ide":"cursor",...}]}` — both registered with recent heartbeats.
 **Why it was wrong**: Both IDEs ARE registered. The bug is definitely not "only one is connected to the daemon."
 **Status**: ❌ Failed
@@ -60,13 +60,13 @@
 Bug is confirmed to be on the **extension host side** (not daemon). Three candidates remain:
 
 ### H1 — AgentPanel not open in VS Code (most likely)
-`AgentPanel.currentPanel` is `null` when the panel tab is closed. `AgentPanel.postMessage()` is a silent no-op when `currentPanel` is null — events arrive at the extension host but are silently discarded. When the panel is opened later, `_loadHistory()` loads ALL events from `~/.myai/logs/` (shared dir), so past events would appear retroactively but live events are missed.
+`AgentPanel.currentPanel` is `null` when the panel tab is closed. `AgentPanel.postMessage()` is a silent no-op when `currentPanel` is null — events arrive at the extension host but are silently discarded. When the panel is opened later, `_loadHistory()` loads ALL events from `~/.mcpEavesdrop/logs/` (shared dir), so past events would appear retroactively but live events are missed.
 
 ### H2 — VS Code SSE stream silently dropped on write error
 When Cursor connects and the daemon writes to both streams, if the VS Code stream throws a write error, `broadcast()` does `sseStreams.delete(id)`. VS Code's extension host then detects the stream close and calls `scheduleReconnect()` with a 5s delay. Events sent during that 5s window are missed. This would explain "last to connect" since reconnect after stream loss would also be last.
 
 ### H3 — Filter state hides VS Code events in webview
-`isVisible(event)` returns `filterState.get(key) !== false`. If VS Code's webview has a stale `localStorage['myai-filters']` entry for the `vscode/proxy-test-ws` key set to `false`, events arrive but are hidden by the filter. Less likely since `filterState.get(key)` returns `undefined` for unknown keys, and `undefined !== false` is `true`.
+`isVisible(event)` returns `filterState.get(key) !== false`. If VS Code's webview has a stale `localStorage['mcpEavesdrop-filters']` entry for the `vscode/proxy-test-ws` key set to `false`, events arrive but are hidden by the filter. Less likely since `filterState.get(key)` returns `undefined` for unknown keys, and `undefined !== false` is `true`.
 
 ---
 
@@ -104,7 +104,7 @@ When Cursor connects and the daemon writes to both streams, if the VS Code strea
 **What was tried**:
 - Searched `src/**/*.ts` for all `process.exit` calls — confirmed only in `daemon/index.ts` and `proxy/stdio-wrapper.ts`; neither is imported by `extension.ts`.
 - Read `dist/extension.js` (tail) — no module-level side-effect code; ends with `0 && (module.exports = { activate, deactivate })`.
-- Checked output channel logs for window12/13/14 — `tasks.log` empty, no MyAI output channel log → crash happens BEFORE `activate()` is called (output channel created as first line of activate).
+- Checked output channel logs for window12/13/14 — `tasks.log` empty, no MCP Eavesdrop output channel log → crash happens BEFORE `activate()` is called (output channel created as first line of activate).
 - Checked renderer.log for windows 11/12/13/14 — ALL have identical pattern: "Started local extension host", "Loading development extension", yaml warning, "AccountPolicyGate apply: state=inactive" — then nothing. The extension host crashes between AccountPolicyGate and the first extension activation event.
 - This means the crash occurs in VS Code's OWN extension host bootstrapping code — BEFORE any of our code runs. Our extension code is not the cause.
 - Compared window1 (normal VS Code, working) vs EDH windows: window1 has `exthost/` logs; EDH windows have no `exthost/` directory. Extension host dies before VS Code's own log directory creation.

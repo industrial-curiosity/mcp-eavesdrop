@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Wrapper writes call log entries to local disk
-The wrapper SHALL append each `tool_call_started`, `tool_call_completed`, and `tool_call_failed` event to a JSON-Lines file at `~/.myai/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl`. This write is synchronous and occurs before any telemetry delivery to the daemon. A missing log directory SHALL be created automatically.
+The wrapper SHALL append each `tool_call_started`, `tool_call_completed`, and `tool_call_failed` event to a JSON-Lines file at `~/.mcpEavesdrop/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl`. This write is synchronous and occurs before any telemetry delivery to the daemon. A missing log directory SHALL be created automatically.
 
 #### Scenario: Successful log write
 - **WHEN** the wrapper generates a telemetry event
@@ -20,17 +20,17 @@ The wrapper SHALL append each `tool_call_started`, `tool_call_completed`, and `t
 ---
 
 ### Requirement: Wrapper handles HTTP-bridged servers in direct mode
-When `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent, the wrapper SHALL forward each JSON-RPC request directly to `MYAI_REAL_URL` over HTTP/HTTPS, write the upstream response to stdout, and invoke the same `handleJsonRpc` telemetry path used by the stdio relay.
+When `MCPEAVESDROP_REAL_URL` is set and `MCPEAVESDROP_REAL_SERVER` is absent, the wrapper SHALL forward each JSON-RPC request directly to `MCPEAVESDROP_REAL_URL` over HTTP/HTTPS, write the upstream response to stdout, and invoke the same `handleJsonRpc` telemetry path used by the stdio relay.
 
 #### Scenario: HTTP direct forward
-- **WHEN** `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent
+- **WHEN** `MCPEAVESDROP_REAL_URL` is set and `MCPEAVESDROP_REAL_SERVER` is absent
 - **AND** a JSON-RPC message arrives on stdin
-- **THEN** the wrapper SHALL POST the message body directly to `MYAI_REAL_URL`
+- **THEN** the wrapper SHALL POST the message body directly to `MCPEAVESDROP_REAL_URL`
 - **THEN** the wrapper SHALL write the upstream response to stdout
 - **THEN** the wrapper SHALL invoke `handleJsonRpc` on both the outgoing request and the incoming response
 
 #### Scenario: Upstream unreachable in HTTP direct mode
-- **WHEN** the upstream server at `MYAI_REAL_URL` is not reachable
+- **WHEN** the upstream server at `MCPEAVESDROP_REAL_URL` is not reachable
 - **THEN** the wrapper SHALL write a JSON-RPC error response (`{ "jsonrpc": "2.0", "id": <id>, "error": { "code": -32000, "message": "<reason>" } }`) to stdout
 - **THEN** the wrapper SHALL continue waiting for the next request without exiting
 

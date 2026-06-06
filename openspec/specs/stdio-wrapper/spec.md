@@ -1,5 +1,5 @@
 ### Requirement: Wrapper transparently relays stdio between IDE and real server
-The stdio wrapper SHALL spawn the real MCP server as a child process using the command and args from `MYAI_REAL_SERVER`, and relay all bytes between its own stdin/stdout and the child's stdin/stdout without modification.
+The stdio wrapper SHALL spawn the real MCP server as a child process using the command and args from `MCPEAVESDROP_REAL_SERVER`, and relay all bytes between its own stdin/stdout and the child's stdin/stdout without modification.
 
 #### Scenario: Normal stdio relay
 - **WHEN** the IDE sends bytes to the wrapper's stdin
@@ -26,7 +26,7 @@ The `_meta` field on `JsonRpcMessage.params` SHALL be typed as `Record<string, u
 
 The wrapper SHALL also forward the entire `_meta` object as a `meta` field on `TelemetryEvent` and `McpToolEvent` whenever `_meta` is present and non-empty on a `tools/call` message. This ensures any fields VS Code adds in future (e.g. `traceparent`, new correlation IDs) are visible in the panel and JSONL logs without a wrapper code change.
 
-This requirement covers the stdio relay path only. The HTTP direct mode path (`handleHttpDirectMessage`, active when `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent) is excluded from session metadata extraction.
+This requirement covers the stdio relay path only. The HTTP direct mode path (`handleHttpDirectMessage`, active when `MCPEAVESDROP_REAL_URL` is set and `MCPEAVESDROP_REAL_SERVER` is absent) is excluded from session metadata extraction.
 
 #### Scenario: Tool call intercepted with session metadata
 - **WHEN** a complete `{"method": "tools/call", ...}` JSON-RPC message is detected in the stream and `_meta['vscode.conversationId']` is present
@@ -54,7 +54,7 @@ This requirement covers the stdio relay path only. The HTTP direct mode path (`h
 ---
 
 ### Requirement: Wrapper writes call log entries to local disk
-The wrapper SHALL append each `tool_call_started`, `tool_call_completed`, and `tool_call_failed` event to a JSON-Lines file at `~/.myai/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl`. This write is synchronous and occurs before any telemetry delivery to the daemon. A missing log directory SHALL be created automatically.
+The wrapper SHALL append each `tool_call_started`, `tool_call_completed`, and `tool_call_failed` event to a JSON-Lines file at `~/.mcpEavesdrop/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl`. This write is synchronous and occurs before any telemetry delivery to the daemon. A missing log directory SHALL be created automatically.
 
 #### Scenario: Successful log write
 - **WHEN** the wrapper generates a telemetry event
@@ -73,51 +73,51 @@ The wrapper SHALL append each `tool_call_started`, `tool_call_completed`, and `t
 ---
 
 ### Requirement: Wrapper handles HTTP-bridged servers in direct mode
-When `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent, the wrapper SHALL forward each JSON-RPC request directly to `MYAI_REAL_URL` over HTTP/HTTPS, write the upstream response to stdout, and invoke the same `handleJsonRpc` telemetry path used by the stdio relay.
+When `MCPEAVESDROP_REAL_URL` is set and `MCPEAVESDROP_REAL_SERVER` is absent, the wrapper SHALL forward each JSON-RPC request directly to `MCPEAVESDROP_REAL_URL` over HTTP/HTTPS, write the upstream response to stdout, and invoke the same `handleJsonRpc` telemetry path used by the stdio relay.
 
 #### Scenario: HTTP direct forward
-- **WHEN** `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent
+- **WHEN** `MCPEAVESDROP_REAL_URL` is set and `MCPEAVESDROP_REAL_SERVER` is absent
 - **AND** a JSON-RPC message arrives on stdin
-- **THEN** the wrapper SHALL POST the message body directly to `MYAI_REAL_URL`
+- **THEN** the wrapper SHALL POST the message body directly to `MCPEAVESDROP_REAL_URL`
 - **THEN** the wrapper SHALL write the upstream response to stdout
 - **THEN** the wrapper SHALL invoke `handleJsonRpc` on both the outgoing request and the incoming response
 
 #### Scenario: Upstream unreachable in HTTP direct mode
-- **WHEN** the upstream server at `MYAI_REAL_URL` is not reachable
+- **WHEN** the upstream server at `MCPEAVESDROP_REAL_URL` is not reachable
 - **THEN** the wrapper SHALL write a JSON-RPC error response (`{ "jsonrpc": "2.0", "id": <id>, "error": { "code": -32000, "message": "<reason>" } }`) to stdout
 - **THEN** the wrapper SHALL continue waiting for the next request without exiting
 
 ---
 
 ### Requirement: Wrapper falls back gracefully if daemon is not running at startup
-If the daemon Unix socket is not reachable when the wrapper starts, the wrapper SHALL continue operating in passthrough mode. The wrapper SHALL also attempt to read the daemon's current address from `~/.myai/daemon.json` as a fallback before giving up.
+If the daemon Unix socket is not reachable when the wrapper starts, the wrapper SHALL continue operating in passthrough mode. The wrapper SHALL also attempt to read the daemon's current address from `~/.mcpEavesdrop/daemon.json` as a fallback before giving up.
 
 #### Scenario: Daemon socket not reachable at startup
 - **WHEN** the path in the wrapper's embedded `DAEMON_SOCKET_PATH` is not connectable
-- **THEN** the wrapper SHALL attempt to read `~/.myai/daemon.json` and connect to the socket path found there
+- **THEN** the wrapper SHALL attempt to read `~/.mcpEavesdrop/daemon.json` and connect to the socket path found there
 - **WHEN** that also fails
 - **THEN** the wrapper SHALL log a warning to stderr and continue in passthrough mode
 
 ---
 
 ### Requirement: Wrapper self-heals if extension is uninstalled
-On startup, the wrapper SHALL check whether the extension directory (`MYAI_EXT_DIR`) still exists. If not, it SHALL restore its own `mcp.json` entry to the original server config and then exec the real server, replacing itself.
+On startup, the wrapper SHALL check whether the extension directory (`MCPEAVESDROP_EXT_DIR`) still exists. If not, it SHALL restore its own `mcp.json` entry to the original server config and then exec the real server, replacing itself.
 
 #### Scenario: Extension directory missing
-- **WHEN** the path in `MYAI_EXT_DIR` does not exist on disk
-- **THEN** the wrapper SHALL read `MYAI_CONFIG_PATH` to locate `mcp.json`
-- **THEN** the wrapper SHALL locate the entry keyed by `MYAI_SERVER_NAME` and restore it to the original command/args/env (stripping all `MYAI_*` keys)
+- **WHEN** the path in `MCPEAVESDROP_EXT_DIR` does not exist on disk
+- **THEN** the wrapper SHALL read `MCPEAVESDROP_CONFIG_PATH` to locate `mcp.json`
+- **THEN** the wrapper SHALL locate the entry keyed by `MCPEAVESDROP_SERVER_NAME` and restore it to the original command/args/env (stripping all `MCPEAVESDROP_*` keys)
 - **THEN** the wrapper SHALL spawn the real server with `stdio: 'inherit'` and exit, handing control to the real process
 
 #### Scenario: Extension directory present
-- **WHEN** `MYAI_EXT_DIR` exists on disk
+- **WHEN** `MCPEAVESDROP_EXT_DIR` exists on disk
 - **THEN** the wrapper SHALL proceed normally without modifying `mcp.json`
 
 ---
 
 ### Requirement: Wrapper embeds a version identifier
-The wrapper source SHALL contain a comment `// MYAI_WRAPPER_VERSION=<n>` on its first line. The extension uses this to detect stale deployments.
+The wrapper source SHALL contain a comment `// MCPEAVESDROP_WRAPPER_VERSION=<n>` on its first line. The extension uses this to detect stale deployments.
 
 #### Scenario: Version comment present
-- **WHEN** the extension reads `~/.myai/stdio-wrapper.js`
+- **WHEN** the extension reads `~/.mcpEavesdrop/stdio-wrapper.js`
 - **THEN** it SHALL be able to extract the version number from the first line comment

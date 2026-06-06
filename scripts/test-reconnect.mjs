@@ -21,7 +21,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 
 const HOME = os.homedir();
-const SOCKET = path.join(HOME, '.myai', 'ipc.sock');
+const SOCKET = path.join(HOME, '.mcpEavesdrop', 'ipc.sock');
 const log = (...args) => console.log('[reconnect]', ...args);
 const fail = (msg) => { console.error('[reconnect] FAIL:', msg); process.exit(1); };
 

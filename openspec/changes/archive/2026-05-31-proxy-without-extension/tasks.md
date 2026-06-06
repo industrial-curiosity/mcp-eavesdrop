@@ -13,7 +13,7 @@
 
 ## 3. Wrapper — local log writing
 
-- [x] 3.1 Add `writeLocalLog(event, ide, workspaceSlug, serverName)` to `src/proxy/stdio-wrapper.ts`: appends `JSON.stringify(event) + '\n'` to `~/.myai/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl`, creating the directory if missing
+- [x] 3.1 Add `writeLocalLog(event, ide, workspaceSlug, serverName)` to `src/proxy/stdio-wrapper.ts`: appends `JSON.stringify(event) + '\n'` to `~/.mcpEavesdrop/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl`, creating the directory if missing
 - [x] 3.2 Call `writeLocalLog()` from `handleJsonRpc` for `tool_call_started`, `tool_call_completed`, and `tool_call_failed` events (unconditional — not gated on daemon reachability)
 - [x] 3.3 Remove the `telemetryEnabled` gate from the `process.stdin` and `child.stdout` data handlers — `handleJsonRpc` is now always called; it handles daemon degradation internally
 
@@ -23,8 +23,8 @@
 - [x] 4.2 Delete the `DAEMON_PROXY_PORT` constant and its `parseInt('__DAEMON_PROXY_PORT__', 10)` initializer
 - [x] 4.3 Add `forwardDirectHttp(url, body)` function: POSTs `body` to `url` over http/https, returns response string; mirrors the daemon's existing `forwardToUpstream` logic
 - [x] 4.4 Add `runHttpDirectMode(ide, workspaceSlug, realUrl, socketPath)`: reads newline-delimited JSON from stdin, calls `handleJsonRpc` on each request, calls `forwardDirectHttp`, writes response to stdout, calls `handleJsonRpc` on the response; handles upstream errors with a JSON-RPC error response
-- [x] 4.5 In `main()`, replace the `runHttpBridgeMode()` call with `runHttpDirectMode()` where `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent
-- [x] 4.6 Bump `MYAI_WRAPPER_VERSION`
+- [x] 4.5 In `main()`, replace the `runHttpBridgeMode()` call with `runHttpDirectMode()` where `MCPEAVESDROP_REAL_URL` is set and `MCPEAVESDROP_REAL_SERVER` is absent
+- [x] 4.6 Bump `MCPEAVESDROP_WRAPPER_VERSION`
 
 ## 5. Wrapper deploy — remove port injection
 
@@ -45,7 +45,7 @@
 
 ## 8. Extension — read history from disk
 
-- [x] 8.1 Add a `readEventLogs(logsDir)` helper in the extension that reads JSONL files from `~/.myai/logs/` and returns events sorted by timestamp
+- [x] 8.1 Add a `readEventLogs(logsDir)` helper in the extension that reads JSONL files from `~/.mcpEavesdrop/logs/` and returns events sorted by timestamp
 - [x] 8.2 On panel open (when `AgentPanel.onPanelReady` fires), read JSONL logs and send a `history` message to the webview
 
 ## 9. Tests and docs

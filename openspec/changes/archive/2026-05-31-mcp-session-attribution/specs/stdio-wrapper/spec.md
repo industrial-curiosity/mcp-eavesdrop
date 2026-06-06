@@ -9,7 +9,7 @@ The `_meta` field on `JsonRpcMessage.params` SHALL be typed as `Record<string, u
 
 The wrapper SHALL also forward the entire `_meta` object as a `meta` field on `TelemetryEvent` and `McpToolEvent` whenever `_meta` is present and non-empty on a `tools/call` message. This ensures any fields VS Code adds in future (e.g. `traceparent`, new correlation IDs) are visible in the panel and JSONL logs without a wrapper code change.
 
-This requirement covers the stdio relay path only. The HTTP direct mode path (`handleHttpDirectMessage`, active when `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent) is excluded from this change.
+This requirement covers the stdio relay path only. The HTTP direct mode path (`handleHttpDirectMessage`, active when `MCPEAVESDROP_REAL_URL` is set and `MCPEAVESDROP_REAL_SERVER` is absent) is excluded from this change.
 
 #### Scenario: Tool call intercepted with session metadata
 - **WHEN** a complete `{"method": "tools/call", ...}` JSON-RPC message is detected in the stream and `_meta['vscode.conversationId']` is present

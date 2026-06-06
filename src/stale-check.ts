@@ -34,7 +34,7 @@ export function checkForStaleWrappers(
   const stale: StaleWrapperWarning[] = [];
 
   for (const [serverName, entry] of Object.entries(root)) {
-    if (!entry?.env?.MYAI_IPC_SOCKET) {
+    if (!entry?.env?.MCPEAVESDROP_IPC_SOCKET) {
       continue;
     }
     const wrapperPath = entry.args?.[0];

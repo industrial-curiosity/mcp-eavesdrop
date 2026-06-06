@@ -20,9 +20,9 @@ current implementation (broken):
 
 what is showMcpConfig supposed to do?
 
-It reads the workspace's .vscode/mcp.json, and for each HTTP MCP server entry it generates a proxy-wrapped replacement URL pointing at the extension's proxy (http://127.0.0.1:<port>/<namespace>). It then prints the resulting snippet to the MyAI output channel for the user to review and paste manually — it never auto-writes the file.
+It reads the workspace's .vscode/mcp.json, and for each HTTP MCP server entry it generates a proxy-wrapped replacement URL pointing at the extension's proxy (http://127.0.0.1:<port>/<namespace>). It then prints the resulting snippet to the MCP Eavesdrop output channel for the user to review and paste manually — it never auto-writes the file.
 
-Example: if your mcp.json has a server named context7 at https://mcp.context7.com, running myai.showMcpConfig would output:
+Example: if your mcp.json has a server named context7 at https://mcp.context7.com, running mcpEavesdrop.showMcpConfig would output:
 
 You paste that into your mcp.json, and from then on VS Code routes context7 tool calls through the proxy, which intercepts them and shows them in the panel.
 

@@ -1,8 +1,10 @@
-# myai-extension
+# MCP Eavesdrop Extension
+
+*Pronounced "em-see-peevesdrop".*
 
 ## What Is This?
 
-`myai-extension` is a VS Code-based IDE extension that provides real-time and post-hoc visibility into AI agent behavior, with a focus on MCP (Model Context Protocol) tool usage.
+`mcpEavesdrop-extension` is a VS Code-based IDE extension that provides real-time and post-hoc visibility into AI agent behavior, with a focus on MCP (Model Context Protocol) tool usage.
 
 When an AI agent (Copilot, Cursor, or any MCP-compatible agent) processes a prompt, the extension shows you what's happening behind the scenes: which tools are being called, with what arguments, how long each call takes, and what was returned. After the agent finishes, you can review the full session timeline.
 
@@ -16,7 +18,7 @@ This extension addresses that gap by acting as an observable MCP proxy layer bet
 
 ### MCP Proxy
 
-The extension manages a shared background daemon (`~/.myai/`) that a single proxy server shared across all open IDE windows. Every tool call passes through this proxy, which records request/response pairs, timing, and correlation metadata before forwarding to the real server.
+The extension manages a shared background daemon (`~/.mcpEavesdrop/`) that a single proxy server shared across all open IDE windows. Every tool call passes through this proxy, which records request/response pairs, timing, and correlation metadata before forwarding to the real server.
 
 The user reconfigures their MCP tool endpoints (in `mcp.json` or VS Code/Cursor settings) to point at the proxy instead of the real servers. The proxy transparently forwards all calls.
 
@@ -28,28 +30,28 @@ All open IDE windows (VS Code, Cursor, or any VS Code fork) connect to a single 
 - Only one proxy port is used system-wide (dynamically selected from 7331–7360).
 - The daemon exits automatically when the last window closes.
 
-The daemon writes its state to `~/.myai/daemon.json`:
+The daemon writes its state to `~/.mcpEavesdrop/daemon.json`:
 
 ```json
-{ "pid": 12345, "socketPath": "/Users/you/.myai/ipc.sock", "startedAt": 1700000000000 }
+{ "pid": 12345, "socketPath": "/Users/you/.mcpEavesdrop/ipc.sock", "startedAt": 1700000000000 }
 ```
 
-#### `~/.myai/` directory structure
+#### `~/.mcpEavesdrop/` directory structure
 
 | Path | Purpose |
 |---|---|
-| `~/.myai/daemon.json` | Daemon PID, proxy port, socket path (written at startup) |
-| `~/.myai/ipc.sock` | Unix domain socket for per-window → daemon IPC |
-| `~/.myai/ipc.lock` | Bootstrap lock (prevents duplicate daemon spawns) |
-| `~/.myai/stdio-wrapper.js` | Deployed wrapper script injected into `mcp.json` entries |
-| `~/.myai/logs/{ide}/{workspace}.jsonl` | Persistent NDJSON event log per IDE/workspace |
+| `~/.mcpEavesdrop/daemon.json` | Daemon PID, proxy port, socket path (written at startup) |
+| `~/.mcpEavesdrop/ipc.sock` | Unix domain socket for per-window → daemon IPC |
+| `~/.mcpEavesdrop/ipc.lock` | Bootstrap lock (prevents duplicate daemon spawns) |
+| `~/.mcpEavesdrop/stdio-wrapper.js` | Deployed wrapper script injected into `mcp.json` entries |
+| `~/.mcpEavesdrop/logs/{ide}/{workspace}.jsonl` | Persistent NDJSON event log per IDE/workspace |
 
 #### Manual daemon restart
 
 If the daemon gets into a bad state (e.g., stale lock after a crash):
 
-1. Kill the daemon: `kill $(jq .pid ~/.myai/daemon.json)`
-2. Remove stale files: `rm -f ~/.myai/ipc.sock ~/.myai/ipc.lock`
+1. Kill the daemon: `kill $(jq .pid ~/.mcpEavesdrop/daemon.json)`
+2. Remove stale files: `rm -f ~/.mcpEavesdrop/ipc.sock ~/.mcpEavesdrop/ipc.lock`
 3. Reload any open VS Code/Cursor window (⌘⇧P → "Developer: Reload Window")
 
 The extension will automatically spawn a fresh daemon on next activation.
@@ -92,39 +94,39 @@ This extension uses only the standard VS Code extension API (`vscode.*`) and is 
 
 ## MCP Monitoring
 
-MyAI can monitor stdio MCP servers by wrapping your user `mcp.json` entries.
+MCP Eavesdrop can monitor stdio MCP servers by wrapping your user `mcp.json` entries.
 
 ### Enable Monitoring
 
-Run `MyAI: Enable MCP Monitoring` from the Command Palette.
+Run `MCP Eavesdrop: Enable MCP Monitoring` from the Command Palette.
 
-- MyAI detects whether you are running VS Code or Cursor.
-- MyAI resolves your user config path (`mcp.json`) and shows it before making changes.
+- MCP Eavesdrop detects whether you are running VS Code or Cursor.
+- MCP Eavesdrop resolves your user config path (`mcp.json`) and shows it before making changes.
 - You will usually see one trust prompt per MCP server after the file is rewritten.
 
 ### Disable Monitoring
 
-Run `MyAI: Disable MCP Monitoring`.
+Run `MCP Eavesdrop: Disable MCP Monitoring`.
 
-- MyAI restores each wrapped entry back to its original command/args/env.
-- If nothing is wrapped, MyAI shows an informational message and leaves files unchanged.
+- MCP Eavesdrop restores each wrapped entry back to its original command/args/env.
+- If nothing is wrapped, MCP Eavesdrop shows an informational message and leaves files unchanged.
 
 ### Restart Daemon
 
-Run `MyAI: Restart Daemon` from the Command Palette.
+Run `MCP Eavesdrop: Restart Daemon` from the Command Palette.
 
-- MyAI force-restarts the shared daemon process.
-- MyAI re-registers the current window and restores panel connectivity/status.
+- MCP Eavesdrop force-restarts the shared daemon process.
+- MCP Eavesdrop re-registers the current window and restores panel connectivity/status.
 - Use this when daemon state seems stale or panel connectivity is stuck.
 
 ### If Extension Is Uninstalled Before Disable
 
-This extension includes a `vscode:uninstall` lifecycle script that attempts to restore wrapped entries automatically and remove `~/.myai/`.
+This extension includes a `vscode:uninstall` lifecycle script that attempts to restore wrapped entries automatically and remove `~/.mcpEavesdrop/`.
 
 If that hook does not run in your environment:
 
-1. Reinstall and run `MyAI: Disable MCP Monitoring`, or
-2. Manually restore entries by replacing wrapped `node ~/.myai/stdio-wrapper.js ...` entries with the original values stored in `MYAI_REAL_SERVER`.
+1. Reinstall and run `MCP Eavesdrop: Disable MCP Monitoring`, or
+2. Manually restore entries by replacing wrapped `node ~/.mcpEavesdrop/stdio-wrapper.js ...` entries with the original values stored in `MCPEAVESDROP_REAL_SERVER`.
 
 ## What This Extension Cannot Do
 

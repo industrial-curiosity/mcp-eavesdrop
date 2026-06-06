@@ -5,7 +5,7 @@ import path from 'path';
 
 const m = await import('../dist/lib/mcp-config.js');
 
-const home = '/tmp/myai-home';
+const home = '/tmp/mcpEavesdrop-home';
 
 assert.equal(
   m.resolveUserMcpConfigPath('vscode', 'darwin', home),
@@ -36,7 +36,7 @@ assert.equal(m.detectIde('Visual Studio Code').rootKey, 'servers');
 assert.equal(m.detectIde('Cursor').rootKey, 'mcpServers');
 assert.equal(m.detectIde('Unknown IDE').rootKey, 'servers');
 
-const ws = '/tmp/myai-ws';
+const ws = '/tmp/mcpEavesdrop-ws';
 assert.deepEqual(m.resolveWorkspaceMcpConfigCandidates('cursor', ws), [
   path.join(ws, '.cursor', 'mcp.json'),
   path.join(ws, '.vscode', 'mcp.json'),

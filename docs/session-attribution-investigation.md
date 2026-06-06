@@ -19,7 +19,7 @@ The `mcp-session-attribution` change is fully implemented and deployed:
 | `src/panel/webview/app.ts` | Mirrors the `meta?` field |
 | `scripts/test-wrapper.mjs` | `deepEqual` assertions for `meta` present/absent |
 | `docs/spec.md` | Interface block updated |
-| `~/.myai/stdio-wrapper.js` | v6 deployed |
+| `~/.mcpEavesdrop/stdio-wrapper.js` | v6 deployed |
 
 All 21 tasks in `openspec/changes/mcp-session-attribution/tasks.md` are `[x]`.
 

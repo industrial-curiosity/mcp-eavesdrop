@@ -9,7 +9,7 @@ Separately, a tighter architecture question emerged: the TCP proxy is an unneces
 - The daemon's TCP proxy server is removed entirely. No more port allocation, no `portMapping` in the webview, no `DAEMON_PROXY_PORT` in the wrapper.
 - HTTP-bridged wrappers forward calls directly to the real upstream URL (same model as stdio wrappers spawning the real server directly).
 - Both wrapper modes (stdio and HTTP) run through the same `handleJsonRpc` telemetry path.
-- The wrapper writes call log entries locally to `~/.myai/logs/` regardless of daemon state — the wrapper is the source of truth for history.
+- The wrapper writes call log entries locally to `~/.mcpEavesdrop/logs/` regardless of daemon state — the wrapper is the source of truth for history.
 - The daemon's `/telemetry` endpoint broadcasts only. No disk writes.
 - Daemon lifetime is controlled exclusively by extension heartbeats. When the last extension disconnects, the daemon exits.
 
