@@ -91,7 +91,7 @@ panel can group calls by conversation.
 Both `McpToolEvent` (shared type, `src/types/events.ts`) and `TelemetryEvent`
 (wrapper-internal) carry `conversationId?: string` and `requestId?: string`.
 
-> **Wrapper version**: these fields were introduced in `MYAI_WRAPPER_VERSION=5`.
+> **Wrapper version**: these fields were introduced in `MCPEAVESDROP_WRAPPER_VERSION=5`.
 > Deployed wrappers at version 4 or lower will never emit these fields.
 > Use `wrapper-deploy` (triggered by the extension) to update deployed wrappers.
 

@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'myai-deploy-test-'));
+const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mcpEavesdrop-deploy-test-'));
 const fakeHome = path.join(tmpRoot, 'home');
 fs.mkdirSync(fakeHome, { recursive: true });
 process.env.HOME = fakeHome;
@@ -20,7 +20,7 @@ const context = {
   },
 };
 
-fs.writeFileSync(bundledWrapperPath, '// MYAI_WRAPPER_VERSION=1\nconsole.log("v1");\n', 'utf8');
+fs.writeFileSync(bundledWrapperPath, '// MCPEAVESDROP_WRAPPER_VERSION=1\nconsole.log("v1");\n', 'utf8');
 const first = mod.deployWrapper(context);
 assert.equal(first.deployed, true);
 assert.equal(fs.existsSync(first.deployedPath), true);
@@ -28,7 +28,7 @@ assert.equal(fs.existsSync(first.deployedPath), true);
 const second = mod.deployWrapper(context);
 assert.equal(second.deployed, false);
 
-fs.writeFileSync(bundledWrapperPath, '// MYAI_WRAPPER_VERSION=2\nconsole.log("v2");\n', 'utf8');
+fs.writeFileSync(bundledWrapperPath, '// MCPEAVESDROP_WRAPPER_VERSION=2\nconsole.log("v2");\n', 'utf8');
 const third = mod.deployWrapper(context);
 assert.equal(third.deployed, true);
 assert.equal(third.version, '2');

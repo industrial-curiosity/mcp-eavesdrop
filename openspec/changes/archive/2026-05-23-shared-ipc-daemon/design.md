@@ -1,6 +1,6 @@
 ## Context
 
-The extension currently starts a per-window IPC socket at a fixed path (`/tmp/myai-extension.sock` on Unix) and a per-window HTTP proxy child process on a random port. Every window activation calls `fs.unlinkSync` on the socket path before binding, which silently evicts any other running extension instance. This means only the last-activated window receives telemetry; prior windows' stdio-wrappers lose their connection without error.
+The extension currently starts a per-window IPC socket at a fixed path (`/tmp/mcpEavesdrop-extension.sock` on Unix) and a per-window HTTP proxy child process on a random port. Every window activation calls `fs.unlinkSync` on the socket path before binding, which silently evicts any other running extension instance. This means only the last-activated window receives telemetry; prior windows' stdio-wrappers lose their connection without error.
 
 The fix is a shared daemon subprocess — a detached Node.js process that all extension instances connect to and that owns the IPC socket and HTTP proxy for its lifetime. The daemon is spawned by the first extension that can acquire a lock file, and self-terminates when all connections are gone.
 
@@ -34,7 +34,7 @@ The fix is a shared daemon subprocess — a detached Node.js process that all ex
 
 ### 2. Bootstrap lock with atomic file creation
 
-**Decision:** Before spawning the daemon the extension attempts to create `~/.myai/ipc.lock` with `O_CREAT | O_EXCL` (via `fs.openSync` with the `'wx'` flag). If creation succeeds it owns the lock, spawns the daemon, then deletes the lock. If creation fails another instance is already bootstrapping; the extension waits 200 ms and retries connecting to `~/.myai/ipc.sock` instead.
+**Decision:** Before spawning the daemon the extension attempts to create `~/.mcpEavesdrop/ipc.lock` with `O_CREAT | O_EXCL` (via `fs.openSync` with the `'wx'` flag). If creation succeeds it owns the lock, spawns the daemon, then deletes the lock. If creation fails another instance is already bootstrapping; the extension waits 200 ms and retries connecting to `~/.mcpEavesdrop/ipc.sock` instead.
 
 ```
 activate():
@@ -50,7 +50,7 @@ activate():
 
 ### 3. Daemon socket protocol — HTTP over Unix domain socket
 
-**Decision:** The daemon exposes an HTTP/1.1 server bound to `~/.myai/ipc.sock` (Unix) or `\\.\pipe\myai-extension` (Windows). Extension instances communicate via standard HTTP requests. SSE (`text/event-stream`) is used for the push event channel.
+**Decision:** The daemon exposes an HTTP/1.1 server bound to `~/.mcpEavesdrop/ipc.sock` (Unix) or `\\.\pipe\mcpEavesdrop-extension` (Windows). Extension instances communicate via standard HTTP requests. SSE (`text/event-stream`) is used for the push event channel.
 
 **Endpoints:**
 
@@ -71,7 +71,7 @@ activate():
 ### 4. HTTP MCP proxy in the daemon
 
 **Decision:** The daemon's HTTP server also acts as the MCP HTTP proxy on a separate **TCP** port (needed because IDE MCP clients cannot connect to a Unix socket). The port is selected dynamically (starting at 7331, incrementing on conflict) and written to:
-1. `~/.myai/daemon.json` — machine-readable state file
+1. `~/.mcpEavesdrop/daemon.json` — machine-readable state file
 2. The deployed `stdio-wrapper.js` file — so the wrapper knows the proxy address without a runtime file read
 
 When the daemon starts or force-restarts on a new port, `wrapper-deploy` rewrites the embedded `DAEMON_PROXY_PORT` constant in the wrapper file.
@@ -82,9 +82,9 @@ Routing is stateless: the daemon uses the `x-upstream-url` request header (injec
 
 ### 5. Stdio-wrapper connects to daemon socket
 
-**Decision:** The stdio-wrapper reads its IPC target from its embedded `DAEMON_SOCKET_PATH` constant (written at deploy time). On connection failure it falls back to reading `~/.myai/daemon.json`. This handles the case where the daemon restarts on a different port after the wrapper process was already launched.
+**Decision:** The stdio-wrapper reads its IPC target from its embedded `DAEMON_SOCKET_PATH` constant (written at deploy time). On connection failure it falls back to reading `~/.mcpEavesdrop/daemon.json`. This handles the case where the daemon restarts on a different port after the wrapper process was already launched.
 
-The wrapper's `ide` and `workspace` values are injected as env vars (`MYAI_IDE`, `MYAI_WORKSPACE_SLUG`) by the extension at mcp.json wrap time, alongside the existing `MYAI_IPC_SOCKET`, `MYAI_REAL_SERVER`, and `MYAI_REAL_URL` env vars.
+The wrapper's `ide` and `workspace` values are injected as env vars (`MCPEAVESDROP_IDE`, `MCPEAVESDROP_WORKSPACE_SLUG`) by the extension at mcp.json wrap time, alongside the existing `MCPEAVESDROP_IPC_SOCKET`, `MCPEAVESDROP_REAL_SERVER`, and `MCPEAVESDROP_REAL_URL` env vars.
 
 ---
 
@@ -98,11 +98,11 @@ The wrapper's `ide` and `workspace` values are injected as env vars (`MYAI_IDE`,
 
 ### 7. Log persistence
 
-**Decision:** The daemon appends each telemetry event as a newline-delimited JSON record to `~/.myai/logs/{ide}/{workspace_slug}.jsonl`. The extension reads log files directly from disk (no daemon query); the daemon only writes.
+**Decision:** The daemon appends each telemetry event as a newline-delimited JSON record to `~/.mcpEavesdrop/logs/{ide}/{workspace_slug}.jsonl`. The extension reads log files directly from disk (no daemon query); the daemon only writes.
 
 File naming: `{ide}` is the lowercase IDE identifier (`vscode`, `cursor`); `{workspace_slug}` is the workspace name lowercased with non-alphanumeric characters replaced by underscores.
 
-The daemon creates `~/.myai/logs/{ide}/` directories on first write. No rotation strategy in this change.
+The daemon creates `~/.mcpEavesdrop/logs/{ide}/` directories on first write. No rotation strategy in this change.
 
 ---
 
@@ -130,7 +130,7 @@ on SSE close or socket error:
     if success → re-register → resubscribe SSE → done
     attempt++
     if attempt % 3 == 0:
-      show alert: "MyAI: Lost connection to daemon. [Keep Trying] [Restart Daemon]"
+      show alert: "MCP Eavesdrop: Lost connection to daemon. [Keep Trying] [Restart Daemon]"
       [Restart Daemon] → POST /shutdown (if daemon alive), then replay startup
     probe daemon liveness: check daemon.pid or attempt connect
     if daemon dead → replay full startup sequence (lock → spawn → connect)
@@ -155,15 +155,15 @@ The forced restart path (`[Restart Daemon]`) calls `POST /shutdown { force: true
 | Lock file left behind after crash | Bootstrap logic: if lock is stale (age > 10s with no daemon running), delete and retry |
 | Daemon starts on a different port after force restart; existing wrappers have stale port | Wrapper falls back to reading `daemon.json`; extension re-instruments mcp.json if port changed |
 | Daemon socket permissions (multi-user machine) | Socket created with mode `0600`; only the owning user can connect |
-| Windows named pipe path collision across users | Include username in pipe name: `\\.\pipe\myai-extension-{username}` |
+| Windows named pipe path collision across users | Include username in pipe name: `\\.\pipe\mcpEavesdrop-extension-{username}` |
 | SSE broadcast to N connections adds latency under high event volume | Loopback only; benchmarked acceptable for expected event rates |
-| `O_CREAT|O_EXCL` lock race on network filesystems (if `~/.myai` is on NFS) | Not supported; `~/.myai` must be on local filesystem (document this) |
+| `O_CREAT|O_EXCL` lock race on network filesystems (if `~/.mcpEavesdrop` is on NFS) | Not supported; `~/.mcpEavesdrop` must be on local filesystem (document this) |
 
 ## Migration Plan
 
-1. On extension activation: if old socket (`/tmp/myai-extension.sock`) exists and old-style proxy is running, stop them gracefully before starting daemon bootstrap
+1. On extension activation: if old socket (`/tmp/mcpEavesdrop-extension.sock`) exists and old-style proxy is running, stop them gracefully before starting daemon bootstrap
 2. The `uninstall-lifecycle` path (`lifecycle.ts`) is unchanged — it still restores mcp.json entries regardless of daemon state
-3. No database migration; logs start fresh in `~/.myai/logs/`. Existing in-memory session history is not migrated.
+3. No database migration; logs start fresh in `~/.mcpEavesdrop/logs/`. Existing in-memory session history is not migrated.
 4. Rollback: revert the extension package; the wrapper entries in mcp.json are restored by lifecycle.ts on uninstall/reinstall
 
 ---
@@ -178,5 +178,5 @@ The forced restart path (`[Restart Daemon]`) calls `POST /shutdown { force: true
 
 ## Open Questions
 
-- Should `~/.myai/logs/` files be capped (e.g. 10 MB per file) or rotated? Deferred to a follow-up change.
+- Should `~/.mcpEavesdrop/logs/` files be capped (e.g. 10 MB per file) or rotated? Deferred to a follow-up change.
 - ~~Should the daemon expose a health/version endpoint for diagnostics?~~ Addressed: `GET /debug/streams` added for SSE stream introspection; `/connections` already returns full registry state.

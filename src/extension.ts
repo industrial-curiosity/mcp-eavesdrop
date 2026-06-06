@@ -17,9 +17,9 @@ import { deployWrapper } from './wrapper-deploy';
 // Constants
 // ---------------------------------------------------------------------------
 
-const MYAI_DIR = path.join(os.homedir(), '.myai');
-const DAEMON_JSON_PATH = path.join(MYAI_DIR, 'daemon.json');
-const LOCK_PATH = path.join(MYAI_DIR, 'ipc.lock');
+const MCPEAVESDROP_DIR = path.join(os.homedir(), '.mcpEavesdrop');
+const DAEMON_JSON_PATH = path.join(MCPEAVESDROP_DIR, 'daemon.json');
+const LOCK_PATH = path.join(MCPEAVESDROP_DIR, 'ipc.lock');
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const RECONNECT_INTERVAL_MS = 5_000;
 const SOCKET_POLL_TIMEOUT_MS = 5_000;
@@ -33,7 +33,7 @@ const LOCK_STALE_AGE_MS = 10_000;
 let outputChannel: vscode.OutputChannel | undefined;
 
 /** Avoid "Channel has been closed" races when the debug session ends mid-activate (common in Cursor). */
-function myaiLog(message: string): void {
+function mcpEavesdropLog(message: string): void {
   const channel = outputChannel;
   if (!channel) return;
   try {
@@ -125,7 +125,7 @@ async function pollSocketReady(socketPath: string, timeoutMs: number): Promise<b
 
 async function acquireLock(): Promise<boolean> {
   try {
-    fs.mkdirSync(MYAI_DIR, { recursive: true });
+    fs.mkdirSync(MCPEAVESDROP_DIR, { recursive: true });
     const fd = fs.openSync(LOCK_PATH, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
     fs.writeSync(fd, String(process.pid));
     fs.closeSync(fd);
@@ -148,31 +148,31 @@ async function spawnDaemon(context: vscode.ExtensionContext): Promise<void> {
   const daemonPath = context.asAbsolutePath(path.join('dist', 'daemon', 'index.js'));
   const child = cp.spawn('node', [daemonPath], { detached: true, stdio: 'ignore' });
   child.unref();
-  myaiLog(`MyAI: spawned daemon (pid ${child.pid})`);
+  mcpEavesdropLog(`MCP Eavesdrop: spawned daemon (pid ${child.pid})`);
 }
 
 async function connectToDaemon(context: vscode.ExtensionContext): Promise<boolean> {
   const reachable = await probeSocket(DAEMON_SOCKET_PATH);
   if (reachable) {
-    myaiLog('MyAI: daemon already running');
+    mcpEavesdropLog('MCP Eavesdrop: daemon already running');
     return true;
   }
 
   const locked = await acquireLock();
   if (!locked) {
     if (checkLockStale()) {
-      myaiLog('MyAI: stale lock detected, removing and retrying');
+      mcpEavesdropLog('MCP Eavesdrop: stale lock detected, removing and retrying');
       try { fs.unlinkSync(LOCK_PATH); } catch { /* ignore */ }
       return connectToDaemon(context);
     }
-    myaiLog('MyAI: waiting for another instance to start daemon');
+    mcpEavesdropLog('MCP Eavesdrop: waiting for another instance to start daemon');
     return pollSocketReady(DAEMON_SOCKET_PATH, SOCKET_POLL_TIMEOUT_MS);
   }
 
   try {
     await spawnDaemon(context);
     const ready = await pollSocketReady(DAEMON_SOCKET_PATH, SOCKET_POLL_TIMEOUT_MS);
-    if (!ready) myaiLog('MyAI: daemon failed to start within timeout');
+    if (!ready) mcpEavesdropLog('MCP Eavesdrop: daemon failed to start within timeout');
     return ready;
   } finally {
     try { fs.unlinkSync(LOCK_PATH); } catch { /* ignore */ }
@@ -193,7 +193,7 @@ async function fetchAndSendConnections(): Promise<void> {
 
 async function restartDaemonFromCommand(): Promise<void> {
   if (!extensionContext) {
-    void vscode.window.showErrorMessage('MyAI: Cannot restart daemon before extension is fully initialized.');
+    void vscode.window.showErrorMessage('MCP Eavesdrop: Cannot restart daemon before extension is fully initialized.');
     return;
   }
 
@@ -207,13 +207,13 @@ async function restartDaemonFromCommand(): Promise<void> {
 
   const connected = await connectToDaemon(extensionContext);
   if (!connected) {
-    void vscode.window.showErrorMessage('MyAI: Failed to restart daemon. Try reloading the window.');
+    void vscode.window.showErrorMessage('MCP Eavesdrop: Failed to restart daemon. Try reloading the window.');
     return;
   }
 
   const daemonInfo = readDaemonJson();
   if (daemonInfo) {
-    myaiLog(`MyAI: daemon restarted via command (pid=${daemonInfo.pid})`);
+    mcpEavesdropLog(`MCP Eavesdrop: daemon restarted via command (pid=${daemonInfo.pid})`);
   }
 
   await registerInstanceWithDaemon();
@@ -221,7 +221,7 @@ async function restartDaemonFromCommand(): Promise<void> {
   daemonConnected = true;
   AgentPanel.postMessage({ type: 'status', connected: true });
   void fetchAndSendConnections();
-  void vscode.window.showInformationMessage('MyAI: Daemon restarted.');
+  void vscode.window.showInformationMessage('MCP Eavesdrop: Daemon restarted.');
 }
 
 // ---------------------------------------------------------------------------
@@ -240,7 +240,7 @@ function startDaemonMonitor(): void {
             daemonRes.on('end', () => {
               const body = Buffer.concat(chunks).toString('utf8');
               const details = body ? `: ${body}` : '';
-              myaiLog(`MyAI: daemon SSE subscribe rejected (${status})${details}`);
+              mcpEavesdropLog(`MCP Eavesdrop: daemon SSE subscribe rejected (${status})${details}`);
               daemonConnected = false;
               AgentPanel.postMessage({ type: 'status', connected: false });
               scheduleReconnect();
@@ -276,7 +276,7 @@ function startDaemonMonitor(): void {
             }
           });
           daemonRes.on('end', () => {
-            myaiLog('MyAI: daemon SSE stream ended, scheduling reconnect');
+            mcpEavesdropLog('MCP Eavesdrop: daemon SSE stream ended, scheduling reconnect');
             daemonConnected = false;
             AgentPanel.postMessage({ type: 'status', connected: false });
             scheduleReconnect();
@@ -299,7 +299,7 @@ function startDaemonMonitor(): void {
     function scheduleReconnect(): void {
       reconnectFailureCount++;
       if (reconnectFailureCount % 3 === 0) {
-        void vscode.window.showWarningMessage(`MyAI: Lost connection to daemon (${reconnectFailureCount} failures). Reconnecting...`);
+        void vscode.window.showWarningMessage(`MCP Eavesdrop: Lost connection to daemon (${reconnectFailureCount} failures). Reconnecting...`);
       }
       reconnectTimer = setTimeout(async () => {
         const socketOk = await probeSocket(DAEMON_SOCKET_PATH).catch(() => false);
@@ -315,13 +315,13 @@ function startDaemonMonitor(): void {
         const daemonDead = !daemonInfo || !isDaemonProcessAlive(daemonInfo.pid);
 
         if (daemonDead && extensionContext) {
-          myaiLog('MyAI: daemon appears dead, replaying full startup sequence...');
+          mcpEavesdropLog('MCP Eavesdrop: daemon appears dead, replaying full startup sequence...');
           const reconnected = await connectToDaemon(extensionContext);
           if (reconnected) {
             reconnectFailureCount = 0;
             const newInfo = readDaemonJson();
             if (newInfo) {
-              myaiLog(`MyAI: daemon restarted (pid=${newInfo.pid})`);
+              mcpEavesdropLog(`MCP Eavesdrop: daemon restarted (pid=${newInfo.pid})`);
             }
             // Re-register with the fresh daemon
             await postDaemon(DAEMON_SOCKET_PATH, '/register', {
@@ -394,7 +394,7 @@ async function registerInstanceWithDaemon(): Promise<void> {
       workspaceSlug: registeredWorkspaceSlug,
     });
   } catch (err) {
-    myaiLog(`MyAI: failed to register with daemon: ${err}`);
+    mcpEavesdropLog(`MCP Eavesdrop: failed to register with daemon: ${err}`);
   }
 }
 
@@ -409,37 +409,37 @@ function applyWorkspaceIdentity(context: vscode.ExtensionContext): void {
 // ---------------------------------------------------------------------------
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  outputChannel = vscode.window.createOutputChannel('MyAI');
+  outputChannel = vscode.window.createOutputChannel('MCP Eavesdrop');
   context.subscriptions.push(outputChannel);
 
   instanceId = crypto.randomUUID();
   ideConfig = detectIde();
 
   if (ideConfig.appName !== 'Visual Studio Code' && ideConfig.appName !== 'Cursor') {
-    myaiLog(`MyAI: unknown IDE appName "${ideConfig.appName}", defaulting to VS Code conventions.`);
+    mcpEavesdropLog(`MCP Eavesdrop: unknown IDE appName "${ideConfig.appName}", defaulting to VS Code conventions.`);
   }
 
   extensionContext = context;
 
   const connected = await connectToDaemon(context);
   if (!connected) {
-    vscode.window.showErrorMessage('MyAI: Failed to start monitoring daemon. Try reloading the window.');
+    vscode.window.showErrorMessage('MCP Eavesdrop: Failed to start monitoring daemon. Try reloading the window.');
     return;
   }
 
   const daemonInfo = readDaemonJson();
   if (daemonInfo) {
-    myaiLog(`MyAI: daemon running (pid=${daemonInfo.pid})`);
+    mcpEavesdropLog(`MCP Eavesdrop: daemon running (pid=${daemonInfo.pid})`);
   }
 
   applyWorkspaceIdentity(context);
   const folder = vscode.workspace.workspaceFolders?.[0];
-  myaiLog(
-    `MyAI: activated in ${ideConfig.appName} (ide=${ideConfig.ide}, workspaceFolders=${vscode.workspace.workspaceFolders?.length ?? 0}${folder ? `, path=${folder.uri.fsPath}` : ''})`,
+  mcpEavesdropLog(
+    `MCP Eavesdrop: activated in ${ideConfig.appName} (ide=${ideConfig.ide}, workspaceFolders=${vscode.workspace.workspaceFolders?.length ?? 0}${folder ? `, path=${folder.uri.fsPath}` : ''})`,
   );
   if (!folder) {
-    myaiLog(
-      `MyAI: no workspace folder open; using "${registeredWorkspaceName}" for workspace identity — open this repo in the Extension Development Host if Cursor shows NoWorkspaceUriError`,
+    mcpEavesdropLog(
+      `MCP Eavesdrop: no workspace folder open; using "${registeredWorkspaceName}" for workspace identity — open this repo in the Extension Development Host if Cursor shows NoWorkspaceUriError`,
     );
   }
 
@@ -447,7 +447,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   logMcpConfigDiagnostics(
     ideConfig.ide,
-    myaiLog,
+    mcpEavesdropLog,
     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
   );
 
@@ -456,13 +456,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const prevSlug = registeredWorkspaceSlug;
       applyWorkspaceIdentity(context);
       if (registeredWorkspaceSlug === prevSlug) return;
-      myaiLog(`MyAI: workspace changed → ${registeredWorkspaceName} (${registeredWorkspaceSlug})`);
+      mcpEavesdropLog(`MCP Eavesdrop: workspace changed → ${registeredWorkspaceName} (${registeredWorkspaceSlug})`);
       void registerInstanceWithDaemon();
     }),
   );
 
   startDaemonMonitor();
-  myaiLog('MyAI: daemon monitor started');
+  mcpEavesdropLog('MCP Eavesdrop: daemon monitor started');
 
   AgentPanel.onPanelReady = () => {
     AgentPanel.postMessage({ type: 'status', connected: daemonConnected });
@@ -478,10 +478,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const staleWrappers = checkForStaleWrappers(configPath, ideConfig.rootKey);
   if (staleWrappers.length > 0) {
-    void vscode.window.showWarningMessage('MyAI monitoring needs to be re-enabled. Run "MyAI: Enable MCP Monitoring".');
+    void vscode.window.showWarningMessage('MCP Eavesdrop monitoring needs to be re-enabled. Run "MCP Eavesdrop: Enable MCP Monitoring".');
   }
 
-  const openPanelCmd = vscode.commands.registerCommand('myai.openPanel', () => {
+  const openPanelCmd = vscode.commands.registerCommand('mcpEavesdrop.openPanel', () => {
     context.globalState.update('panelWasOpen', true);
     AgentPanel.createOrShow(context.extensionUri);
   });
@@ -492,19 +492,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Fetch connections and push to panel
   // ---------------------------------------------------------------------------
 
-  const clearSessionCmd = vscode.commands.registerCommand('myai.clearSession', async () => {
+  const clearSessionCmd = vscode.commands.registerCommand('mcpEavesdrop.clearSession', async () => {
     try {
       await postDaemon(DAEMON_SOCKET_PATH, '/internal/clear', {});
     } catch (err) {
-      myaiLog(`clearSession failed: ${err}`);
+      mcpEavesdropLog(`clearSession failed: ${err}`);
     }
   });
 
-  const restartDaemonCmd = vscode.commands.registerCommand('myai.restartDaemon', async () => {
+  const restartDaemonCmd = vscode.commands.registerCommand('mcpEavesdrop.restartDaemon', async () => {
     await restartDaemonFromCommand();
   });
 
-  const showConfigCmd = vscode.commands.registerCommand('myai.showMcpConfig', () => {
+  const showConfigCmd = vscode.commands.registerCommand('mcpEavesdrop.showMcpConfig', () => {
     if (outputChannel) showProxyConfigSnippet(outputChannel);
   });
 
@@ -585,7 +585,7 @@ function readMcpConfigForDisplay(): { servers: Record<string, McpServerConfig>; 
 function showProxyConfigSnippet(channel: vscode.OutputChannel): void {
   const { servers: allServers, source } = readMcpConfigForDisplay();
   if (Object.keys(allServers).length === 0) {
-    vscode.window.showInformationMessage('MyAI: No MCP servers found in IDE user mcp.json.');
+    vscode.window.showInformationMessage('MCP Eavesdrop: No MCP servers found in IDE user mcp.json.');
     return;
   }
 
@@ -616,8 +616,8 @@ function showProxyConfigSnippet(channel: vscode.OutputChannel): void {
     for (const server of stdioServers) {
       channel.appendLine(`// - ${server.name}: ${[server.command, ...server.args].join(' ')}`);
     }
-    channel.appendLine('// To monitor stdio servers, run "MyAI: Enable MCP Monitoring".');
+    channel.appendLine('// To monitor stdio servers, run "MCP Eavesdrop: Enable MCP Monitoring".');
   }
   channel.show();
-  void vscode.window.showInformationMessage(`MyAI: MCP config summary generated from ${source}. See Output -> MyAI.`);
+  void vscode.window.showInformationMessage(`MCP Eavesdrop: MCP config summary generated from ${source}. See Output -> MCP Eavesdrop.`);
 }

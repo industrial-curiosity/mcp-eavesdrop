@@ -25,7 +25,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const HOME = os.homedir();
-const SOCKET = path.join(HOME, '.myai', 'ipc.sock');
+const SOCKET = path.join(HOME, '.mcpEavesdrop', 'ipc.sock');
 const INSTANCE_ID = 'proxy-test-' + Date.now();
 const log = (...args) => console.log('[test-proxy]', ...args);
 const fail = (msg) => { console.error('[test-proxy] FAIL:', msg); process.exit(1); };

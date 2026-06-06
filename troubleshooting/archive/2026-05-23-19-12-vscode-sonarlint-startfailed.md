@@ -20,14 +20,14 @@
 **Hypothesis**: SonarLint/SonarQube warnings in pasted debug output were in-scope for this investigation.
 **What was tried**: Began Sonar-related triage using extension host logs and extension folders.
 **Result**: User clarified Sonar findings are a separate issue and not relevant to this investigation.
-**Why it was wrong**: Scope assumption was incorrect; this session must focus on MyAI extension behavior only.
+**Why it was wrong**: Scope assumption was incorrect; this session must focus on MCP Eavesdrop extension behavior only.
 **Status**: ❌ Failed
 
 ---
 
-## Attempt 3 — Fix repeated SSE reconnect loop in MyAI
+## Attempt 3 — Fix repeated SSE reconnect loop in MCP Eavesdrop
 
-**Hypothesis**: `MyAI: daemon SSE stream ended, scheduling reconnect` repeats because reconnect path re-subscribes to `/events` when socket exists but instance registration is missing; daemon rejects stream and closes immediately, causing an infinite loop.
+**Hypothesis**: `MCP Eavesdrop: daemon SSE stream ended, scheduling reconnect` repeats because reconnect path re-subscribes to `/events` when socket exists but instance registration is missing; daemon rejects stream and closes immediately, causing an infinite loop.
 **What was tried**: Updated `src/extension.ts` monitor logic to: (1) treat non-200 `/events` responses as failed subscribe (without marking connected), (2) log rejection status/body, and (3) re-register instance before re-subscribing when socket probe succeeds during reconnect.
 **Result**: `npm run build` passes after changes. User confirmed connection errors resolved and test script passes.
 **Status**: ✅ Resolved
@@ -36,7 +36,7 @@
 
 ## Attempt 4 — Blanket --disable-extensions in launch.json
 
-**Hypothesis**: All non-MyAI extensions including SonarLint can be silenced by adding `--disable-extensions` to the extensionHost launch args.
+**Hypothesis**: All non-MCP Eavesdrop extensions including SonarLint can be silenced by adding `--disable-extensions` to the extensionHost launch args.
 **What was tried**: Added `--disable-extensions` to `args` in `.vscode/launch.json`.
 **Result**: User ran debug session and SonarLint errors persisted unchanged. `Chat Customizations Evaluations extension activated` also still appeared, confirming the flag was not honoured for the Extension Development Host.
 **Why it was wrong**: VS Code's `extensionHost` launch type does not honour `--disable-extensions` (plural) in `args` in this version — at minimum the Chat Customizations extension (possibly a VS Code built-in) always loads, and SonarLint also continued loading.

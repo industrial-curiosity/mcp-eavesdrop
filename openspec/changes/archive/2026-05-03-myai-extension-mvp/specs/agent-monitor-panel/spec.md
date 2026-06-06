@@ -1,10 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Panel opens in secondary editor column
-The extension SHALL open the AI Agent Monitor panel in the secondary editor column (beside the active editor) when the `myai.openPanel` command is invoked.
+The extension SHALL open the AI Agent Monitor panel in the secondary editor column (beside the active editor) when the `mcpEavesdrop.openPanel` command is invoked.
 
 #### Scenario: Panel opens beside active editor
-- **WHEN** the user runs `myai.openPanel`
+- **WHEN** the user runs `mcpEavesdrop.openPanel`
 - **THEN** the panel SHALL open in `ViewColumn.Beside`
 - **THEN** if the panel is already open, it SHALL reveal (focus) the existing panel instead of opening a second one
 

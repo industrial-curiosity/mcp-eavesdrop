@@ -24,12 +24,12 @@
 ## 4. Extension Host
 
 - [x] 4.1 Create `src/extension.ts` — `activate()` function that spawns `src/proxy/server.ts` as a child process via `child_process.spawn`
-- [x] 4.2 Parse proxy stdout for `{"port": N}` JSON; set 5-second timeout and disable `myai.openPanel` on failure
-- [x] 4.3 Register `myai.openPanel` command — opens/reveals `AgentPanel` and sends `init` message with `proxyPort`
-- [x] 4.4 Register `myai.clearSession` command — broadcasts `session_cleared` event via proxy WebSocket
+- [x] 4.2 Parse proxy stdout for `{"port": N}` JSON; set 5-second timeout and disable `mcpEavesdrop.openPanel` on failure
+- [x] 4.3 Register `mcpEavesdrop.openPanel` command — opens/reveals `AgentPanel` and sends `init` message with `proxyPort`
+- [x] 4.4 Register `mcpEavesdrop.clearSession` command — broadcasts `session_cleared` event via proxy WebSocket
 - [x] 4.5 Implement `deactivate()` — send SIGTERM to proxy, SIGKILL after 2s if still running
 - [x] 4.6 Handle unexpected proxy exit: log exit code and attempt one restart
-- [x] 4.7 Open a Unix domain socket IPC server at `$TMPDIR/myai-extension.sock`; respond to each connection with `{"port": N}` then close; remove stale socket on activate and clean up on deactivate
+- [x] 4.7 Open a Unix domain socket IPC server at `$TMPDIR/mcpEavesdrop-extension.sock`; respond to each connection with `{"port": N}` then close; remove stale socket on activate and clean up on deactivate
 - [x] 4.8 After proxy reports its port, reopen the panel if `globalState('panelWasOpen')` is true; add `AgentPanel.notifyProxyPort()` to push new port to an already-open panel without revealing it; set `globalState('panelWasOpen')` on open/close via `AgentPanel.onDidDispose`
 
 ## 5. WebView Panel Controller
@@ -37,7 +37,7 @@
 - [x] 5.1 Create `src/panel/AgentPanel.ts` — `createOrShow()` static method, open in `ViewColumn.Beside`, `retainContextWhenHidden: true`
 - [x] 5.2 Set WebView HTML from `src/panel/webview/index.html` with strict CSP (no inline scripts without nonce, no external resources)
 - [x] 5.3 Handle `ready` message from WebView: send `init` message with `{ proxyPort }`
-- [x] 5.4 Handle `clearSession` message from WebView: trigger `myai.clearSession` logic
+- [x] 5.4 Handle `clearSession` message from WebView: trigger `mcpEavesdrop.clearSession` logic
 
 ## 6. WebView Frontend
 
@@ -60,5 +60,5 @@
 ## 8. Build & Package
 
 - [x] 8.1 Confirm `vsce package` produces a `.vsix` without errors
-- [x] 8.2 Verify extension activates in Extension Development Host and `myai.openPanel` opens the panel
+- [x] 8.2 Verify extension activates in Extension Development Host and `mcpEavesdrop.openPanel` opens the panel
 - [x] 8.3 Manual smoke test: route a test MCP tool call through the proxy and confirm it appears in the panel

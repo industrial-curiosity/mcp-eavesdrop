@@ -1,9 +1,9 @@
-# myai-extension — Technical Specification
+# mcpEavesdrop-extension — Technical Specification
 
 ## 1. Project Structure
 
 ```text
-myai-extension/
+mcpEavesdrop-extension/
 ├── package.json               # VS Code extension manifest
 ├── src/
 │   ├── extension.ts           # Extension entry point (activate/deactivate)
@@ -22,7 +22,7 @@ myai-extension/
 │   │       ├── app.ts         # WebView frontend (vanilla TS or React)
 │   │       └── styles.css
 │   ├── stale-check.ts         # Activation stale-wrapper detection
-│   ├── wrapper-deploy.ts      # Stable wrapper deployment to ~/.myai/
+│   ├── wrapper-deploy.ts      # Stable wrapper deployment to ~/.mcpEavesdrop/
 │   └── types/
 │       └── events.ts          # Shared event type definitions
 ├── docs/
@@ -39,7 +39,7 @@ myai-extension/
 
 **Responsibilities:**
 
-- Register the `myai.openPanel` command
+- Register the `mcpEavesdrop.openPanel` command
 - On activation, spawn the proxy server as a managed child process
 - Pass the proxy's port/address to the WebView panel
 - On deactivation, kill the proxy process cleanly
@@ -54,9 +54,9 @@ myai-extension/
 
 | Command | Title |
 | --- | --- |
-| `myai.openPanel` | AI Agent Monitor: Open Panel |
-| `myai.clearSession` | AI Agent Monitor: Clear Session |
-| `myai.restartDaemon` | AI Agent Monitor: Restart Daemon |
+| `mcpEavesdrop.openPanel` | AI Agent Monitor: Open Panel |
+| `mcpEavesdrop.clearSession` | AI Agent Monitor: Clear Session |
+| `mcpEavesdrop.restartDaemon` | AI Agent Monitor: Restart Daemon |
 
 ---
 

@@ -1,9 +1,9 @@
 ## 1. Daemon Foundation
 
 - [x] 1.1 Create `src/daemon/` directory and `src/daemon/index.ts` entry point with Unix socket + TCP HTTP server scaffolding
-- [x] 1.2 Implement dynamic TCP port selection (7331–7360) with conflict detection and `~/.myai/daemon.json` write
-- [x] 1.3 Implement `~/.myai/ipc.sock` binding with `0600` permissions, stale socket cleanup, and Windows named pipe fallback
-- [x] 1.4 Add bootstrap lock logic in `src/extension.ts`: probe socket → acquire `~/.myai/ipc.lock` → spawn detached daemon → poll socket → release lock
+- [x] 1.2 Implement dynamic TCP port selection (7331–7360) with conflict detection and `~/.mcpEavesdrop/daemon.json` write
+- [x] 1.3 Implement `~/.mcpEavesdrop/ipc.sock` binding with `0600` permissions, stale socket cleanup, and Windows named pipe fallback
+- [x] 1.4 Add bootstrap lock logic in `src/extension.ts`: probe socket → acquire `~/.mcpEavesdrop/ipc.lock` → spawn detached daemon → poll socket → release lock
 - [x] 1.5 Handle stale lock detection (age > 10s with no connectable socket → delete and retry)
 - [x] 1.6 Create `src/daemon/constants.ts` as a side-effect-free module exporting only `DAEMON_SOCKET_PATH`; update `extension.ts`, `wrapper-deploy.ts`, and `daemon/index.ts` to import from this module instead of `daemon/index.ts`
 
@@ -18,7 +18,7 @@
 
 ## 3. Daemon Event Pipeline
 
-- [x] 3.1 Implement `src/daemon/logger.ts`: append events as NDJSON to `~/.myai/logs/{ide}/{workspaceSlug}.jsonl`, creating directories as needed
+- [x] 3.1 Implement `src/daemon/logger.ts`: append events as NDJSON to `~/.mcpEavesdrop/logs/{ide}/{workspaceSlug}.jsonl`, creating directories as needed
 - [x] 3.2 Implement `GET /events` SSE endpoint: validate `instanceId` is registered, keep connection open, send heartbeat comment every 15s to detect dead connections
 - [x] 3.3 Implement event broadcast: on each telemetry event, write to disk then fan out to all open SSE streams
 - [x] 3.4 Implement `POST /telemetry` endpoint: validate body (`id`, `type`, `timestamp`, `ide`, `workspaceSlug`), persist, broadcast
@@ -34,21 +34,21 @@
 
 ## 5. Wrapper Deploy — Daemon Port Injection
 
-- [x] 5.1 Update `src/wrapper-deploy.ts` to write `DAEMON_SOCKET_PATH` and `DAEMON_PROXY_PORT` constants into the deployed `~/.myai/stdio-wrapper.js` after daemon startup
+- [x] 5.1 Update `src/wrapper-deploy.ts` to write `DAEMON_SOCKET_PATH` and `DAEMON_PROXY_PORT` constants into the deployed `~/.mcpEavesdrop/stdio-wrapper.js` after daemon startup
 - [x] 5.2 Add re-inject step on forced daemon restart (new port selected → redeploy wrapper constants)
 - [x] 5.3 Update version check logic to also re-deploy when proxy port has changed since last deploy
 
 ## 6. Stdio Wrapper Updates
 
-- [x] 6.1 Update `src/proxy/stdio-wrapper.ts`: replace `MYAI_IPC_SOCKET`-as-HTTP target with daemon Unix socket path constant; use `POST /telemetry` with `ide` and `workspaceSlug` fields
-- [x] 6.2 Implement daemon.json fallback: on socket connection failure, read `~/.myai/daemon.json` and retry with the socket path found there
-- [x] 6.3 Implement HTTP bridge mode: when `MYAI_REAL_URL` is set and `MYAI_REAL_SERVER` is absent, forward stdin JSON-RPC to `http://127.0.0.1:{DAEMON_PROXY_PORT}/{MYAI_SERVER_NAME}` with `x-upstream-url` header and write response to stdout
-- [x] 6.4 Inject `MYAI_IDE` and `MYAI_WORKSPACE_SLUG` env vars in `src/mcp-wrap.ts` at wrap time alongside existing `MYAI_*` vars
+- [x] 6.1 Update `src/proxy/stdio-wrapper.ts`: replace `MCPEAVESDROP_IPC_SOCKET`-as-HTTP target with daemon Unix socket path constant; use `POST /telemetry` with `ide` and `workspaceSlug` fields
+- [x] 6.2 Implement daemon.json fallback: on socket connection failure, read `~/.mcpEavesdrop/daemon.json` and retry with the socket path found there
+- [x] 6.3 Implement HTTP bridge mode: when `MCPEAVESDROP_REAL_URL` is set and `MCPEAVESDROP_REAL_SERVER` is absent, forward stdin JSON-RPC to `http://127.0.0.1:{DAEMON_PROXY_PORT}/{MCPEAVESDROP_SERVER_NAME}` with `x-upstream-url` header and write response to stdout
+- [x] 6.4 Inject `MCPEAVESDROP_IDE` and `MCPEAVESDROP_WORKSPACE_SLUG` env vars in `src/mcp-wrap.ts` at wrap time alongside existing `MCPEAVESDROP_*` vars
 
 ## 7. MCP Config Wrapping Updates
 
-- [x] 7.1 Update `wrapEntry()` in `src/mcp-wrap.ts` for HTTP entries: convert to stdio format pointing to `stdio-wrapper.js` (no port number in mcp.json); set `MYAI_REAL_URL` in env
-- [x] 7.2 Remove per-instance `MYAI_IPC_SOCKET` env var injection; socket path is now embedded as a constant in the deployed `stdio-wrapper.js` at deploy time (see task 5.1)
+- [x] 7.1 Update `wrapEntry()` in `src/mcp-wrap.ts` for HTTP entries: convert to stdio format pointing to `stdio-wrapper.js` (no port number in mcp.json); set `MCPEAVESDROP_REAL_URL` in env
+- [x] 7.2 Remove per-instance `MCPEAVESDROP_IPC_SOCKET` env var injection; socket path is now embedded as a constant in the deployed `stdio-wrapper.js` at deploy time (see task 5.1)
 - [x] 7.3 Verify `unwrapEntry()` in `src/mcp-wrap.ts` correctly restores both old stdio-wrapped and new HTTP-to-stdio-wrapped entries
 
 ## 8. Extension Lifecycle Refactor
@@ -65,7 +65,7 @@
 - [x] 9.1 Update webview `app.ts`: remove `EventSource` and `connect()` entirely; handle `{ type: 'event' }`, `{ type: 'status' }`, and `{ type: 'connections' }` postMessages from extension host; remove `connect-src` from CSP
 - [x] 9.2 Add connections sidebar component: render list of `{ ide, workspace, connectedAt }` from `init` and `connections_changed` messages
 - [x] 9.3 Implement per-connection filter toggles: hide/show events by `ide`/`workspaceSlug`; persist filter state in webview local storage
-- [x] 9.4 Implement history loading: extension reads all `~/.myai/logs/**/*.jsonl`, merges by timestamp, sends as `history` message to webview before live stream begins
+- [x] 9.4 Implement history loading: extension reads all `~/.mcpEavesdrop/logs/**/*.jsonl`, merges by timestamp, sends as `history` message to webview before live stream begins
 - [x] 9.5 Update panel to render history batch before live events, applying active filters
 
 ## 10. Testing
@@ -74,7 +74,7 @@
 - [x] 10.2 Add `scripts/test-daemon-lifecycle.mjs`: multi-instance scenario (spawn two clients, verify both receive events, verify daemon exits when last client deregisters)
 - [x] 10.3 Add `scripts/test-reconnect.mjs`: kill daemon mid-session, verify extension reconnect loop replays startup and panel reconnects
 - [x] 10.4 Update `scripts/test-wrapper.mjs` to test HTTP bridge mode and `daemon.json` fallback path
-- [x] 10.5 Update `scripts/test-mcp-wrap.mjs`: remove stale `ipcSocket`/`proxyPort` fixture fields (no longer in `WrapOptions`); add `ide` and `workspaceSlug`; remove `MYAI_IPC_SOCKET` env assertion (socket path is now embedded in wrapper, not set as env var)
+- [x] 10.5 Update `scripts/test-mcp-wrap.mjs`: remove stale `ipcSocket`/`proxyPort` fixture fields (no longer in `WrapOptions`); add `ide` and `workspaceSlug`; remove `MCPEAVESDROP_IPC_SOCKET` env assertion (socket path is now embedded in wrapper, not set as env var)
 - [x] 10.6 Manually verify end-to-end with VS Code + Cursor open simultaneously: both panels show events from both windows
 
 ## 11. Cleanup and Documentation
@@ -82,6 +82,6 @@
 - [x] 11.1 Delete or archive `src/proxy/server.ts` standalone entry point (logic moved to daemon)
 - [x] 11.2 Update `tsconfig.json` build entries: add `src/daemon/index.ts`, remove or repurpose old proxy server entry
 - [x] 11.3 Update `build.mjs` to output `dist/daemon/index.js`
-- [x] 11.4 Update `README.md`: document `~/.myai/` directory structure, multi-IDE support, and manual daemon restart procedure
-- [x] 11.5 Add `~/.myai/` to `.gitignore` if not already present
+- [x] 11.4 Update `README.md`: document `~/.mcpEavesdrop/` directory structure, multi-IDE support, and manual daemon restart procedure
+- [x] 11.5 Add `~/.mcpEavesdrop/` to `.gitignore` if not already present
 - [x] 11.6 Verify `dist/extension.js` contains no daemon startup code (`grep main.catch dist/extension.js` returns 0 matches)

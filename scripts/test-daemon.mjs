@@ -23,8 +23,8 @@ import { spawn } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 
 const HOME = os.homedir();
-const DAEMON_SOCKET = path.join(HOME, '.myai', 'ipc.sock');
-const DAEMON_JSON = path.join(HOME, '.myai', 'daemon.json');
+const DAEMON_SOCKET = path.join(HOME, '.mcpEavesdrop', 'ipc.sock');
+const DAEMON_JSON = path.join(HOME, '.mcpEavesdrop', 'daemon.json');
 
 const log = (...args) => console.log('[test-daemon]', ...args);
 const fail = (msg) => { console.error('[test-daemon] FAIL:', msg); process.exit(1); };

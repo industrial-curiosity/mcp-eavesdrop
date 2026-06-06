@@ -1,10 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Panel opens in secondary editor column
-The extension SHALL open the AI Agent Monitor panel in the secondary editor column (beside the active editor) when the `myai.openPanel` command is invoked.
+The extension SHALL open the AI Agent Monitor panel in the secondary editor column (beside the active editor) when the `mcpEavesdrop.openPanel` command is invoked.
 
 #### Scenario: Panel opens beside active editor
-- **WHEN** the user runs `myai.openPanel`
+- **WHEN** the user runs `mcpEavesdrop.openPanel`
 - **THEN** the panel SHALL open in `ViewColumn.Beside`
 - **THEN** if the panel is already open, it SHALL reveal (focus) the existing panel instead of opening a second one
 
@@ -107,9 +107,9 @@ The panel log SHALL automatically scroll to the most recent entry as new events 
 The extension host SHALL handle daemon restarts transparently by reconnecting to the Unix socket. The webview SHALL NOT be involved in reconnection logic.
 
 #### Scenario: Daemon restarts while panel is open
-- **WHEN** the daemon restarts and `~/.myai/daemon.json` is updated with a new `socketPath` or `startedAt`
+- **WHEN** the daemon restarts and `~/.mcpEavesdrop/daemon.json` is updated with a new `socketPath` or `startedAt`
 - **THEN** the extension host SHALL detect the socket failure during the next reconnect attempt
-- **THEN** the extension host SHALL re-read `~/.myai/daemon.json`, connect to the socket path found there, and re-subscribe to the daemon SSE stream
+- **THEN** the extension host SHALL re-read `~/.mcpEavesdrop/daemon.json`, connect to the socket path found there, and re-subscribe to the daemon SSE stream
 - **THEN** no user action SHALL be required
 - **THEN** the webview SHALL receive only `{ type: 'status', connected: true }` — it SHALL NOT receive daemon connection details
 
@@ -139,7 +139,7 @@ The extension host SHALL subscribe to the daemon's SSE stream via `GET /events` 
 
 #### Scenario: Subscription established on activation
 - **WHEN** the extension activates and the daemon is running
-- **THEN** the extension host SHALL open an HTTP request to `GET /events?instanceId=<id>` on `~/.myai/ipc.sock`
+- **THEN** the extension host SHALL open an HTTP request to `GET /events?instanceId=<id>` on `~/.mcpEavesdrop/ipc.sock`
 - **THEN** on connection, the extension host SHALL set `daemonConnected = true` and send `{ type: 'status', connected: true }` to the panel
 
 #### Scenario: SSE event forwarding
@@ -218,16 +218,16 @@ The panel SHALL allow the user to select which connections' events are visible b
 ---
 
 ### Requirement: Panel loads log history from disk on open
-When the panel opens, the extension host SHALL read all `.jsonl` log files from `~/.myai/logs/`, merge their records sorted by timestamp, and send the merged history to the webview as an initial batch of events.
+When the panel opens, the extension host SHALL read all `.jsonl` log files from `~/.mcpEavesdrop/logs/`, merge their records sorted by timestamp, and send the merged history to the webview as an initial batch of events.
 
 #### Scenario: History loaded successfully
 - **WHEN** the panel opens
-- **THEN** the extension SHALL read all `.jsonl` files under `~/.myai/logs/`
+- **THEN** the extension SHALL read all `.jsonl` files under `~/.mcpEavesdrop/logs/`
 - **THEN** the extension SHALL merge and sort events by `timestamp` ascending
 - **THEN** the extension SHALL send the merged history to the webview before the live SSE stream begins
 
 #### Scenario: No log files exist
-- **WHEN** no `.jsonl` files are found in `~/.myai/logs/`
+- **WHEN** no `.jsonl` files are found in `~/.mcpEavesdrop/logs/`
 - **THEN** the panel SHALL display an empty log with no error
 
 #### Scenario: History respects active filters

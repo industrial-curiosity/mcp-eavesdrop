@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Stops a running myai daemon before extension debug (F5).
+ * Stops a running mcpEavesdrop daemon before extension debug (F5).
  * Replaces a noisy stderr-connected daemon with a fresh quiet one on next activate.
  */
 import * as http from 'http';
@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-const SOCKET = path.join(os.homedir(), '.myai', 'ipc.sock');
+const SOCKET = path.join(os.homedir(), '.mcpEavesdrop', 'ipc.sock');
 
 function post(urlPath) {
   return new Promise((resolve, reject) => {

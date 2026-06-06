@@ -1,33 +1,33 @@
 ### Requirement: Extension registers the openPanel command
-The extension SHALL register a `myai.openPanel` command that opens the AI Agent Monitor WebView panel.
+The extension SHALL register a `mcpEavesdrop.openPanel` command that opens the AI Agent Monitor WebView panel.
 
 #### Scenario: Command invoked
-- **WHEN** the user runs `myai.openPanel` from the Command Palette
+- **WHEN** the user runs `mcpEavesdrop.openPanel` from the Command Palette
 - **THEN** the extension SHALL open (or reveal) the `AgentPanel` WebView
 - **THEN** the extension SHALL send an `init` message to the panel with `{ proxyPort: number }`
 
 ---
 
 ### Requirement: Extension registers the clearSession command
-The extension SHALL register a `myai.clearSession` command that clears the current session log.
+The extension SHALL register a `mcpEavesdrop.clearSession` command that clears the current session log.
 
 #### Scenario: clearSession command invoked
-- **WHEN** the user runs `myai.clearSession` from the Command Palette or the panel sends a `clearSession` message
+- **WHEN** the user runs `mcpEavesdrop.clearSession` from the Command Palette or the panel sends a `clearSession` message
 - **THEN** the extension host SHALL broadcast a `session_cleared` event to all WebSocket clients via the proxy
 
 ---
 
 ### Requirement: Extension registers a restart daemon command
-The extension SHALL register a `myai.restartDaemon` command that force-restarts the shared daemon process and rehydrates panel state.
+The extension SHALL register a `mcpEavesdrop.restartDaemon` command that force-restarts the shared daemon process and rehydrates panel state.
 
 #### Scenario: Command invocation restarts daemon
-- **WHEN** the user runs `myai.restartDaemon`
+- **WHEN** the user runs `mcpEavesdrop.restartDaemon`
 - **THEN** the extension SHALL request daemon shutdown using the daemon control endpoint with force semantics
 - **THEN** the extension SHALL run the same daemon bootstrap flow used on activation to ensure a new daemon is running
 - **THEN** the extension SHALL re-register the current extension instance and resume heartbeat/SSE monitoring
 
 #### Scenario: Panel state after daemon restart
-- **WHEN** `myai.restartDaemon` completes successfully
+- **WHEN** `mcpEavesdrop.restartDaemon` completes successfully
 - **THEN** the extension host SHALL push updated `status` and `connections` messages to the panel
 - **THEN** the panel SHALL be able to reload history and display live events without requiring window reload
 
@@ -114,27 +114,27 @@ The extension SHALL determine the absolute path to the user-level `mcp.json` for
 ---
 
 ### Requirement: Extension deploys the stdio wrapper to a stable path
-When monitoring is first enabled, the extension SHALL copy `dist/proxy/stdio-wrapper.js` to `~/.myai/stdio-wrapper.js` (or `%USERPROFILE%\.myai\stdio-wrapper.js` on Windows), creating the directory if it does not exist. The extension SHALL overwrite the deployed wrapper if the bundled version number differs.
+When monitoring is first enabled, the extension SHALL copy `dist/proxy/stdio-wrapper.js` to `~/.mcpEavesdrop/stdio-wrapper.js` (or `%USERPROFILE%\.mcpEavesdrop\stdio-wrapper.js` on Windows), creating the directory if it does not exist. The extension SHALL overwrite the deployed wrapper if the bundled version number differs.
 
 #### Scenario: First-time deploy
-- **WHEN** the user enables monitoring and `~/.myai/stdio-wrapper.js` does not exist
-- **THEN** the extension SHALL create `~/.myai/` and copy the bundled wrapper into it
+- **WHEN** the user enables monitoring and `~/.mcpEavesdrop/stdio-wrapper.js` does not exist
+- **THEN** the extension SHALL create `~/.mcpEavesdrop/` and copy the bundled wrapper into it
 
 #### Scenario: Wrapper version mismatch
-- **WHEN** `~/.myai/stdio-wrapper.js` exists and its embedded `MYAI_WRAPPER_VERSION` comment differs from the bundled wrapper
+- **WHEN** `~/.mcpEavesdrop/stdio-wrapper.js` exists and its embedded `MCPEAVESDROP_WRAPPER_VERSION` comment differs from the bundled wrapper
 - **THEN** the extension SHALL overwrite the deployed wrapper with the bundled version
 
 #### Scenario: Wrapper up to date
-- **WHEN** `~/.myai/stdio-wrapper.js` exists and its version matches the bundled wrapper
+- **WHEN** `~/.mcpEavesdrop/stdio-wrapper.js` exists and its version matches the bundled wrapper
 - **THEN** the extension SHALL skip the copy
 
 ---
 
-### Requirement: `myai.enableMonitoring` command wraps all MCP servers
-The extension SHALL register a `myai.enableMonitoring` command that reads the user-level `mcp.json`, displays the file path and a trust-prompt warning to the user, and on confirmation rewrites each server entry to route through the stdio wrapper.
+### Requirement: `mcpEavesdrop.enableMonitoring` command wraps all MCP servers
+The extension SHALL register a `mcpEavesdrop.enableMonitoring` command that reads the user-level `mcp.json`, displays the file path and a trust-prompt warning to the user, and on confirmation rewrites each server entry to route through the stdio wrapper.
 
 #### Scenario: Command invoked — user confirms
-- **WHEN** the user runs `myai.enableMonitoring`
+- **WHEN** the user runs `mcpEavesdrop.enableMonitoring`
 - **THEN** the extension SHALL show an information message stating the config file path and that each MCP server will require a new trust confirmation
 - **WHEN** the user selects "Enable"
 - **THEN** the extension SHALL deploy the wrapper, rewrite all unwrapped server entries, and show a confirmation message
@@ -148,7 +148,7 @@ The extension SHALL register a `myai.enableMonitoring` command that reads the us
 - **THEN** the extension SHALL show an error message stating the expected path and that no configuration was found
 
 #### Scenario: All servers already wrapped
-- **WHEN** every entry in `mcp.json` already contains `MYAI_IPC_SOCKET` in its `env`
+- **WHEN** every entry in `mcp.json` already contains `MCPEAVESDROP_IPC_SOCKET` in its `env`
 - **THEN** the extension SHALL inform the user that monitoring is already enabled and take no action
 
 ---
@@ -159,27 +159,27 @@ Each wrapped stdio server entry in `mcp.json` SHALL embed the original server co
 #### Scenario: Wrapped entry structure
 - **WHEN** a stdio entry is wrapped
 - **THEN** `command` SHALL be `"node"`
-- **THEN** `args` SHALL be `["<absolute-path-to-~/.myai/stdio-wrapper.js>", "<server-name>"]`
-- **THEN** `env` SHALL contain all original env vars plus: `MYAI_IPC_SOCKET` (path to `~/.myai/ipc.sock`), `MYAI_REAL_SERVER`, `MYAI_SERVER_NAME`, `MYAI_CONFIG_PATH`, `MYAI_EXT_DIR`, `MYAI_WRAPPER_VERSION`, `MYAI_IDE`, `MYAI_WORKSPACE_SLUG`
+- **THEN** `args` SHALL be `["<absolute-path-to-~/.mcpEavesdrop/stdio-wrapper.js>", "<server-name>"]`
+- **THEN** `env` SHALL contain all original env vars plus: `MCPEAVESDROP_IPC_SOCKET` (path to `~/.mcpEavesdrop/ipc.sock`), `MCPEAVESDROP_REAL_SERVER`, `MCPEAVESDROP_SERVER_NAME`, `MCPEAVESDROP_CONFIG_PATH`, `MCPEAVESDROP_EXT_DIR`, `MCPEAVESDROP_WRAPPER_VERSION`, `MCPEAVESDROP_IDE`, `MCPEAVESDROP_WORKSPACE_SLUG`
 
 #### Scenario: Wrapped HTTP entry structure
 - **WHEN** an HTTP/SSE server entry is wrapped
 - **THEN** the entry SHALL be converted to a stdio entry pointing to `stdio-wrapper.js`
-- **THEN** `env` SHALL contain `MYAI_REAL_URL` (original URL), `MYAI_SERVER_NAME`, `MYAI_CONFIG_PATH`, `MYAI_WRAPPER_VERSION`, `MYAI_IDE`, `MYAI_WORKSPACE_SLUG`
+- **THEN** `env` SHALL contain `MCPEAVESDROP_REAL_URL` (original URL), `MCPEAVESDROP_SERVER_NAME`, `MCPEAVESDROP_CONFIG_PATH`, `MCPEAVESDROP_WRAPPER_VERSION`, `MCPEAVESDROP_IDE`, `MCPEAVESDROP_WORKSPACE_SLUG`
 - **THEN** no port number SHALL appear in `mcp.json`; the wrapper reads the proxy port from its embedded constant
 
 ---
 
-### Requirement: `myai.disableMonitoring` command restores all MCP servers
-The extension SHALL register a `myai.disableMonitoring` command that reads `mcp.json`, detects all wrapped entries, reconstructs the originals from their embedded metadata, and writes the restored config.
+### Requirement: `mcpEavesdrop.disableMonitoring` command restores all MCP servers
+The extension SHALL register a `mcpEavesdrop.disableMonitoring` command that reads `mcp.json`, detects all wrapped entries, reconstructs the originals from their embedded metadata, and writes the restored config.
 
 #### Scenario: Disable with wrapped entries present
-- **WHEN** the user runs `myai.disableMonitoring`
-- **THEN** the extension SHALL restore every entry that contains `MYAI_IPC_SOCKET` in its `env` to its original `command`, `args`, and `env` (stripping all `MYAI_*` keys)
+- **WHEN** the user runs `mcpEavesdrop.disableMonitoring`
+- **THEN** the extension SHALL restore every entry that contains `MCPEAVESDROP_IPC_SOCKET` in its `env` to its original `command`, `args`, and `env` (stripping all `MCPEAVESDROP_*` keys)
 - **THEN** the extension SHALL show a confirmation message
 
 #### Scenario: No wrapped entries found
-- **WHEN** no entries contain `MYAI_IPC_SOCKET`
+- **WHEN** no entries contain `MCPEAVESDROP_IPC_SOCKET`
 - **THEN** the extension SHALL inform the user that monitoring is not currently enabled
 
 ---
@@ -189,7 +189,7 @@ On every activation, the extension SHALL check whether any wrapped entries in th
 
 #### Scenario: Stale wrapper detected
 - **WHEN** a wrapped entry's `args[0]` path does not exist on disk
-- **THEN** the extension SHALL show a warning: "MyAI monitoring needs to be re-enabled. Run 'MyAI: Enable MCP Monitoring' to restore it."
+- **THEN** the extension SHALL show a warning: "MCP Eavesdrop monitoring needs to be re-enabled. Run 'MCP Eavesdrop: Enable MCP Monitoring' to restore it."
 
 #### Scenario: No stale wrappers
 - **WHEN** all wrapped entries point to existing wrapper paths (or no entries are wrapped)
@@ -197,22 +197,22 @@ On every activation, the extension SHALL check whether any wrapped entries in th
 
 ---
 
-### Requirement: `myai.showMcpConfig` surfaces all configured MCP servers with type-appropriate guidance
-The `myai.showMcpConfig` command SHALL display all configured MCP servers found in the IDE's user-level `mcp.json` only. Output SHALL cover both HTTP URL and stdio server types, with actionable guidance for each. Workspace-level `mcp.json` is not supported in this phase.
+### Requirement: `mcpEavesdrop.showMcpConfig` surfaces all configured MCP servers with type-appropriate guidance
+The `mcpEavesdrop.showMcpConfig` command SHALL display all configured MCP servers found in the IDE's user-level `mcp.json` only. Output SHALL cover both HTTP URL and stdio server types, with actionable guidance for each. Workspace-level `mcp.json` is not supported in this phase.
 
 #### Scenario: IDE user config has HTTP servers
 - **WHEN** the IDE user-level `mcp.json` contains one or more HTTP URL server entries
-- **THEN** the command SHALL open the MyAI output channel and show a proxy snippet re-pointing each HTTP server to `http://127.0.0.1:<proxy-port>/<name>`
-- **THEN** the command SHALL show a success notification directing the user to Output → MyAI
+- **THEN** the command SHALL open the MCP Eavesdrop output channel and show a proxy snippet re-pointing each HTTP server to `http://127.0.0.1:<proxy-port>/<name>`
+- **THEN** the command SHALL show a success notification directing the user to Output → MCP Eavesdrop
 
 #### Scenario: IDE user config has stdio servers only
 - **WHEN** the IDE user-level `mcp.json` contains only stdio entries (no HTTP URL servers)
-- **THEN** the command SHALL open the MyAI output channel and list the stdio servers with their command and args
-- **THEN** the output SHALL include a note directing the user to run "MyAI: Enable MCP Monitoring" for stdio servers
+- **THEN** the command SHALL open the MCP Eavesdrop output channel and list the stdio servers with their command and args
+- **THEN** the output SHALL include a note directing the user to run "MCP Eavesdrop: Enable MCP Monitoring" for stdio servers
 
 #### Scenario: Mixed HTTP and stdio servers in the same config
 - **WHEN** the IDE user-level `mcp.json` contains both HTTP URL entries and stdio entries
-- **THEN** the output SHALL include the proxy snippet for HTTP entries AND the stdio listing for stdio entries in the same MyAI output channel view
+- **THEN** the output SHALL include the proxy snippet for HTTP entries AND the stdio listing for stdio entries in the same MCP Eavesdrop output channel view
 
 #### Scenario: Both `servers` and `mcpServers` roots are scanned
 - **WHEN** the IDE user-level `mcp.json` uses either `"servers"` or `"mcpServers"` as the root key
@@ -225,10 +225,10 @@ The `myai.showMcpConfig` command SHALL display all configured MCP servers found 
 ---
 
 ### Requirement: Extension probes for daemon and bootstraps if absent
-On activation, the extension SHALL attempt to connect to `~/.myai/ipc.sock`. If the connection fails, it SHALL acquire a bootstrap lock and spawn the daemon. If lock acquisition fails (another instance is bootstrapping), it SHALL retry the connection after 200ms.
+On activation, the extension SHALL attempt to connect to `~/.mcpEavesdrop/ipc.sock`. If the connection fails, it SHALL acquire a bootstrap lock and spawn the daemon. If lock acquisition fails (another instance is bootstrapping), it SHALL retry the connection after 200ms.
 
 #### Scenario: Daemon already running
-- **WHEN** the extension activates and `~/.myai/ipc.sock` is connectable
+- **WHEN** the extension activates and `~/.mcpEavesdrop/ipc.sock` is connectable
 - **THEN** the extension SHALL skip spawning and proceed directly to registration
 
 #### Scenario: Daemon not running, lock acquired
@@ -245,7 +245,7 @@ On activation, the extension SHALL attempt to connect to `~/.myai/ipc.sock`. If 
 #### Scenario: Daemon fails to start within timeout
 - **WHEN** the socket is not connectable after 5 seconds
 - **THEN** the extension SHALL log an error and show a VS Code error message
-- **THEN** the `myai.openPanel` command SHALL be disabled
+- **THEN** the `mcpEavesdrop.openPanel` command SHALL be disabled
 
 ---
 
@@ -288,12 +288,12 @@ If the extension's connection to the daemon is lost for any reason, it SHALL att
 - **THEN** the extension SHALL re-register and resubscribe to the SSE stream
 
 #### Scenario: Daemon found dead during reconnect
-- **WHEN** a reconnect attempt fails and the daemon's PID (from `~/.myai/daemon.pid`) is not a running process
+- **WHEN** a reconnect attempt fails and the daemon's PID (from `~/.mcpEavesdrop/daemon.pid`) is not a running process
 - **THEN** the extension SHALL replay the full startup sequence (lock → spawn → connect)
 
 #### Scenario: Three consecutive reconnect failures
 - **WHEN** three consecutive reconnect attempts fail within the retry loop
-- **THEN** the extension SHALL show a VS Code warning: "MyAI: Lost connection to daemon" with buttons "Keep Trying" and "Restart Daemon"
+- **THEN** the extension SHALL show a VS Code warning: "MCP Eavesdrop: Lost connection to daemon" with buttons "Keep Trying" and "Restart Daemon"
 - **WHEN** the user selects "Restart Daemon"
 - **THEN** the extension SHALL POST `{ "force": true }` to `/shutdown` (if daemon responds), then replay startup
 

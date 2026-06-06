@@ -50,7 +50,7 @@ add this line **before** the `postTelemetry` call:
 
 ```typescript
 process.stderr.write(
-  `myai-debug: _meta=${JSON.stringify(message.params?._meta ?? null)}\n`
+  `mcpEavesdrop-debug: _meta=${JSON.stringify(message.params?._meta ?? null)}\n`
 );
 ```
 
@@ -68,21 +68,21 @@ Confirm `dist/proxy/stdio-wrapper.js` is updated (check its mtime).
 
 ## Step 3 — Deploy the wrapper
 
-The wrapper at `~/.myai/stdio-wrapper.js` is what Cursor actually runs.
+The wrapper at `~/.mcpEavesdrop/stdio-wrapper.js` is what Cursor actually runs.
 It is deployed by the extension on activation, but only when the version
 string changes. To force re-deploy, either:
 
-- Increment `MYAI_WRAPPER_VERSION` in `src/proxy/stdio-wrapper.ts` (line 2)
+- Increment `MCPEAVESDROP_WRAPPER_VERSION` in `src/proxy/stdio-wrapper.ts` (line 2)
   and rebuild, then reopen VS Code/Cursor so the extension activates, or
 - Copy manually:
   ```bash
-  cp dist/proxy/stdio-wrapper.js ~/.myai/stdio-wrapper.js
+  cp dist/proxy/stdio-wrapper.js ~/.mcpEavesdrop/stdio-wrapper.js
   ```
 
-Confirm the deployed file contains the `myai-debug:` line:
+Confirm the deployed file contains the `mcpEavesdrop-debug:` line:
 
 ```bash
-grep 'myai-debug' ~/.myai/stdio-wrapper.js
+grep 'mcpEavesdrop-debug' ~/.mcpEavesdrop/stdio-wrapper.js
 ```
 
 ---
@@ -94,11 +94,11 @@ cat ~/.cursor/mcp.json
 ```
 
 Look for any entry whose `command` is `node` and whose `args` contains
-`~/.myai/stdio-wrapper.js` (the path may be absolute). Report which server
+`~/.mcpEavesdrop/stdio-wrapper.js` (the path may be absolute). Report which server
 names are wrapped.
 
 If no servers are wrapped, stop here. Apply the proxy config first using
-`myai.showMcpConfig` in VS Code/Cursor and paste the output into
+`mcpEavesdrop.showMcpConfig` in VS Code/Cursor and paste the output into
 `~/.cursor/mcp.json`, then restart Cursor.
 
 ---
@@ -116,7 +116,7 @@ Look for files referencing the wrapped server name or containing `stdio`:
 
 ```bash
 find ~/Library/Logs/Cursor ~/Library/Application\ Support/Cursor/logs \
-  -name '*.log' -newer ~/.myai/stdio-wrapper.js 2>/dev/null | head -20
+  -name '*.log' -newer ~/.mcpEavesdrop/stdio-wrapper.js 2>/dev/null | head -20
 ```
 
 Note the path(s) and their last-modified times. If nothing is found, check
@@ -140,13 +140,13 @@ Once done, confirm and proceed to Step 7.
 
 ```bash
 # Replace with the actual log path found in Step 5
-grep 'myai-debug' <path-to-cursor-mcp-log>
+grep 'mcpEavesdrop-debug' <path-to-cursor-mcp-log>
 ```
 
 If the log path is unknown, search broadly:
 
 ```bash
-grep -r 'myai-debug' ~/Library/Logs/Cursor \
+grep -r 'mcpEavesdrop-debug' ~/Library/Logs/Cursor \
   ~/Library/Application\ Support/Cursor/logs 2>/dev/null | head -20
 ```
 
@@ -163,9 +163,9 @@ Return all of the following:
 | Full `_meta` shape (sanitize actual ID values to `<uuid>`) | |
 | Any unexpected extra fields? | |
 
-If no `myai-debug` lines were found, include:
+If no `mcpEavesdrop-debug` lines were found, include:
 - The last 20 lines of the log file
-- The output of `grep 'myai' ~/.cursor/mcp.json` to confirm the wrapper is configured
+- The output of `grep 'mcpEavesdrop' ~/.cursor/mcp.json` to confirm the wrapper is configured
 
 ---
 
@@ -173,19 +173,19 @@ If no `myai-debug` lines were found, include:
 
 **Outcome A — Cursor passes `_meta` unchanged:**
 ```
-myai-debug: _meta={"progressToken":"...","vscode.conversationId":"<uuid>","vscode.requestId":"<uuid>"}
+mcpEavesdrop-debug: _meta={"progressToken":"...","vscode.conversationId":"<uuid>","vscode.requestId":"<uuid>"}
 ```
 → Cursor sessions get full session attribution in the event log.
 
 **Outcome B — Cursor sends `_meta` but strips VS Code fields:**
 ```
-myai-debug: _meta={"progressToken":"..."}
+mcpEavesdrop-debug: _meta={"progressToken":"..."}
 ```
 → Cursor tool calls go into the no-session bucket. Session grouping is
 unavailable for Cursor until Cursor exposes its own session identifier.
 
 **Outcome C — No `_meta` at all:**
 ```
-myai-debug: _meta=null
+mcpEavesdrop-debug: _meta=null
 ```
 → Same as Outcome B.

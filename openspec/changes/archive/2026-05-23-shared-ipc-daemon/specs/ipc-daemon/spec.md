@@ -4,34 +4,34 @@
 The IPC daemon SHALL be started by the first extension instance that successfully acquires the bootstrap lock. The daemon SHALL be spawned with `detached: true` and `stdio: 'ignore'`, and the spawning process SHALL call `child.unref()` immediately so the daemon outlives the extension host.
 
 #### Scenario: First extension activates with no daemon running
-- **WHEN** an extension instance activates and no daemon is reachable at `~/.myai/ipc.sock`
-- **AND** the extension acquires `~/.myai/ipc.lock` via atomic create (`O_CREAT | O_EXCL`)
+- **WHEN** an extension instance activates and no daemon is reachable at `~/.mcpEavesdrop/ipc.sock`
+- **AND** the extension acquires `~/.mcpEavesdrop/ipc.lock` via atomic create (`O_CREAT | O_EXCL`)
 - **THEN** the extension SHALL spawn `node dist/daemon/index.js` as a detached child process
 - **THEN** the extension SHALL call `child.unref()` to decouple the daemon from the extension host lifecycle
-- **THEN** the extension SHALL poll `~/.myai/ipc.sock` until it becomes connectable (up to 5 seconds)
-- **THEN** the extension SHALL delete `~/.myai/ipc.lock` after the daemon socket is confirmed available
+- **THEN** the extension SHALL poll `~/.mcpEavesdrop/ipc.sock` until it becomes connectable (up to 5 seconds)
+- **THEN** the extension SHALL delete `~/.mcpEavesdrop/ipc.lock` after the daemon socket is confirmed available
 
 #### Scenario: Bootstrap lock is stale
-- **WHEN** `~/.myai/ipc.lock` exists but is older than 10 seconds and `~/.myai/ipc.sock` is not connectable
+- **WHEN** `~/.mcpEavesdrop/ipc.lock` exists but is older than 10 seconds and `~/.mcpEavesdrop/ipc.sock` is not connectable
 - **THEN** the extension SHALL delete the stale lock and retry acquisition
 
 ---
 
-### Requirement: Daemon writes its state to `~/.myai/daemon.json` on startup
-On startup the daemon SHALL write a JSON state file to `~/.myai/daemon.json` containing its PID, proxy TCP port, socket path, and start timestamp. The daemon SHALL update this file if the proxy port changes (e.g. after force restart).
+### Requirement: Daemon writes its state to `~/.mcpEavesdrop/daemon.json` on startup
+On startup the daemon SHALL write a JSON state file to `~/.mcpEavesdrop/daemon.json` containing its PID, proxy TCP port, socket path, and start timestamp. The daemon SHALL update this file if the proxy port changes (e.g. after force restart).
 
 #### Scenario: Daemon starts successfully
 - **WHEN** the daemon process starts and binds its sockets
-- **THEN** it SHALL write `{ "pid": <number>, "proxyPort": <number>, "socketPath": "<path>", "startedAt": <ms> }` to `~/.myai/daemon.json`
+- **THEN** it SHALL write `{ "pid": <number>, "proxyPort": <number>, "socketPath": "<path>", "startedAt": <ms> }` to `~/.mcpEavesdrop/daemon.json`
 
 #### Scenario: Probe for liveness
 - **WHEN** an extension needs to determine if a daemon process is alive
-- **THEN** the extension SHALL read `~/.myai/daemon.pid` and check whether a process with that PID is running
+- **THEN** the extension SHALL read `~/.mcpEavesdrop/daemon.pid` and check whether a process with that PID is running
 
 ---
 
 ### Requirement: Daemon selects a dynamic proxy TCP port
-The daemon SHALL attempt to bind its HTTP MCP proxy server starting at port 7331, incrementing by one on conflict, until a free port is found. The chosen port SHALL be written to `~/.myai/daemon.json` and embedded in the deployed `~/.myai/stdio-wrapper.js`.
+The daemon SHALL attempt to bind its HTTP MCP proxy server starting at port 7331, incrementing by one on conflict, until a free port is found. The chosen port SHALL be written to `~/.mcpEavesdrop/daemon.json` and embedded in the deployed `~/.mcpEavesdrop/stdio-wrapper.js`.
 
 #### Scenario: Port 7331 is available
 - **WHEN** the daemon starts and port 7331 is free
@@ -97,7 +97,7 @@ When a telemetry event arrives (from a stdio-wrapper or from its own HTTP proxy)
 
 #### Scenario: Event from stdio-wrapper
 - **WHEN** the daemon receives `POST /telemetry` with a valid `McpToolEvent` body plus `ide` and `workspaceSlug` fields
-- **THEN** the daemon SHALL append the event as a newline-delimited JSON record to `~/.myai/logs/{ide}/{workspaceSlug}.jsonl`
+- **THEN** the daemon SHALL append the event as a newline-delimited JSON record to `~/.mcpEavesdrop/logs/{ide}/{workspaceSlug}.jsonl`
 - **THEN** the daemon SHALL broadcast the enriched event (with `ide` and `workspaceSlug` fields) to all open SSE streams
 
 #### Scenario: Event from HTTP proxy
@@ -190,11 +190,11 @@ The `DAEMON_SOCKET_PATH` constant and any other value shared between the daemon 
 ---
 
 ### Requirement: Daemon persists log files per IDE and workspace
-The daemon SHALL create and maintain `~/.myai/logs/{ide}/{workspaceSlug}.jsonl` files, appending one JSON record per event. The directory SHALL be created if it does not exist.
+The daemon SHALL create and maintain `~/.mcpEavesdrop/logs/{ide}/{workspaceSlug}.jsonl` files, appending one JSON record per event. The directory SHALL be created if it does not exist.
 
 #### Scenario: First event for a new workspace
 - **WHEN** the first telemetry event arrives for a `(ide, workspaceSlug)` combination
-- **THEN** the daemon SHALL create `~/.myai/logs/{ide}/` if absent
+- **THEN** the daemon SHALL create `~/.mcpEavesdrop/logs/{ide}/` if absent
 - **THEN** the daemon SHALL create `{workspaceSlug}.jsonl` and append the event
 
 #### Scenario: Subsequent events
@@ -204,7 +204,7 @@ The daemon SHALL create and maintain `~/.myai/logs/{ide}/{workspaceSlug}.jsonl` 
 ---
 
 ### Requirement: Daemon Unix socket is accessible only to the owning user
-The daemon SHALL create `~/.myai/ipc.sock` with permissions `0600`. On Windows the named pipe SHALL be scoped to the current user's session.
+The daemon SHALL create `~/.mcpEavesdrop/ipc.sock` with permissions `0600`. On Windows the named pipe SHALL be scoped to the current user's session.
 
 #### Scenario: Socket created with restricted permissions
 - **WHEN** the daemon starts and creates the Unix socket
@@ -212,5 +212,5 @@ The daemon SHALL create `~/.myai/ipc.sock` with permissions `0600`. On Windows t
 - **THEN** connection attempts from a different OS user SHALL be rejected by the OS
 
 #### Scenario: Stale socket cleanup
-- **WHEN** the daemon starts and `~/.myai/ipc.sock` already exists (e.g. from a previous crash)
+- **WHEN** the daemon starts and `~/.mcpEavesdrop/ipc.sock` already exists (e.g. from a previous crash)
 - **THEN** the daemon SHALL unlink the stale socket before binding

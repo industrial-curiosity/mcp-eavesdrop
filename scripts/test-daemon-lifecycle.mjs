@@ -21,7 +21,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 
 const HOME = os.homedir();
-const SOCKET = path.join(HOME, '.myai', 'ipc.sock');
+const SOCKET = path.join(HOME, '.mcpEavesdrop', 'ipc.sock');
 const log = (...args) => console.log('[lifecycle]', ...args);
 const fail = (msg) => { console.error('[lifecycle] FAIL:', msg); process.exit(1); };
 
@@ -87,7 +87,7 @@ if (existingDaemon) {
   log('Found existing daemon — shutting it down before test…');
   try { await post(SOCKET, '/shutdown', { force: true }); } catch { /* ignore */ }
   try {
-    const daemonJson = JSON.parse(fs.readFileSync(path.join(HOME, '.myai', 'daemon.json'), 'utf8'));
+    const daemonJson = JSON.parse(fs.readFileSync(path.join(HOME, '.mcpEavesdrop', 'daemon.json'), 'utf8'));
     if (daemonJson.pid) { try { process.kill(daemonJson.pid, 'SIGTERM'); } catch { /* already gone */ } }
   } catch { /* daemon.json may not exist */ }
   const gone = await waitForSocketGone(SOCKET, 5000);

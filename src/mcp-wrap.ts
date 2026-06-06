@@ -1,13 +1,13 @@
 import {
-  MYAI_CONFIG_PATH,
-  MYAI_EXT_DIR,
-  MYAI_IDE,
-  MYAI_IPC_SOCKET,
-  MYAI_REAL_SERVER,
-  MYAI_REAL_URL,
-  MYAI_SERVER_NAME,
-  MYAI_WRAPPER_VERSION,
-  MYAI_WORKSPACE_SLUG,
+  MCPEAVESDROP_CONFIG_PATH,
+  MCPEAVESDROP_EXT_DIR,
+  MCPEAVESDROP_IDE,
+  MCPEAVESDROP_IPC_SOCKET,
+  MCPEAVESDROP_REAL_SERVER,
+  MCPEAVESDROP_REAL_URL,
+  MCPEAVESDROP_SERVER_NAME,
+  MCPEAVESDROP_WRAPPER_VERSION,
+  MCPEAVESDROP_WORKSPACE_SLUG,
 } from './types';
 
 export interface McpServerEntry {
@@ -34,10 +34,10 @@ interface SerializedRealServer {
   env?: Record<string, string>;
 }
 
-function stripMyAiEnv(env: Record<string, string> | undefined): Record<string, string> {
+function stripMcpEavesdropEnv(env: Record<string, string> | undefined): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(env ?? {})) {
-    if (!key.startsWith('MYAI_')) {
+    if (!key.startsWith('MCPEAVESDROP_')) {
       result[key] = value;
     }
   }
@@ -45,23 +45,23 @@ function stripMyAiEnv(env: Record<string, string> | undefined): Record<string, s
 }
 
 export function isWrapped(entry: McpServerEntry): boolean {
-  // Check MYAI_IPC_SOCKET for backward compat with entries wrapped by older extension versions
+  // Check MCPEAVESDROP_IPC_SOCKET for backward compat with entries wrapped by older extension versions
   return Boolean(
-    entry?.env?.[MYAI_IPC_SOCKET] ||
-    entry?.env?.[MYAI_REAL_SERVER] ||
-    entry?.env?.[MYAI_REAL_URL],
+    entry?.env?.[MCPEAVESDROP_IPC_SOCKET] ||
+    entry?.env?.[MCPEAVESDROP_REAL_SERVER] ||
+    entry?.env?.[MCPEAVESDROP_REAL_URL],
   );
 }
 
 export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServerEntry {
-  const baseEnv = stripMyAiEnv(entry.env);
+  const baseEnv = stripMcpEavesdropEnv(entry.env);
   const metadata: Record<string, string> = {
-    [MYAI_SERVER_NAME]: options.serverName,
-    [MYAI_CONFIG_PATH]: options.configPath,
-    [MYAI_EXT_DIR]: options.extensionDir,
-    [MYAI_WRAPPER_VERSION]: options.wrapperVersion,
-    [MYAI_IDE]: options.ide,
-    [MYAI_WORKSPACE_SLUG]: options.workspaceSlug,
+    [MCPEAVESDROP_SERVER_NAME]: options.serverName,
+    [MCPEAVESDROP_CONFIG_PATH]: options.configPath,
+    [MCPEAVESDROP_EXT_DIR]: options.extensionDir,
+    [MCPEAVESDROP_WRAPPER_VERSION]: options.wrapperVersion,
+    [MCPEAVESDROP_IDE]: options.ide,
+    [MCPEAVESDROP_WORKSPACE_SLUG]: options.workspaceSlug,
   };
 
   if (entry.url) {
@@ -72,7 +72,7 @@ export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServe
       env: {
         ...baseEnv,
         ...metadata,
-        [MYAI_REAL_URL]: entry.url,
+        [MCPEAVESDROP_REAL_URL]: entry.url,
       },
     };
   }
@@ -89,7 +89,7 @@ export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServe
     env: {
       ...baseEnv,
       ...metadata,
-      [MYAI_REAL_SERVER]: JSON.stringify(serialized),
+      [MCPEAVESDROP_REAL_SERVER]: JSON.stringify(serialized),
     },
   };
 }
@@ -97,9 +97,9 @@ export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServe
 export function unwrapEntry(entry: McpServerEntry): McpServerEntry {
   const env = { ...(entry.env ?? {}) };
 
-  if (env[MYAI_REAL_URL]) {
-    const realUrl = env[MYAI_REAL_URL];
-    const cleanEnv = stripMyAiEnv(env);
+  if (env[MCPEAVESDROP_REAL_URL]) {
+    const realUrl = env[MCPEAVESDROP_REAL_URL];
+    const cleanEnv = stripMcpEavesdropEnv(env);
     // Restore as a clean HTTP entry regardless of whether it was originally stdio or http
     const restored: McpServerEntry = { url: realUrl };
     if (entry.type) restored.type = entry.type;
@@ -109,23 +109,23 @@ export function unwrapEntry(entry: McpServerEntry): McpServerEntry {
     return restored;
   }
 
-  if (!env[MYAI_REAL_SERVER]) {
+  if (!env[MCPEAVESDROP_REAL_SERVER]) {
     return {
       ...entry,
-      env: stripMyAiEnv(env),
+      env: stripMcpEavesdropEnv(env),
     };
   }
 
   let parsed: SerializedRealServer | undefined;
   try {
-    parsed = JSON.parse(env[MYAI_REAL_SERVER]) as SerializedRealServer;
+    parsed = JSON.parse(env[MCPEAVESDROP_REAL_SERVER]) as SerializedRealServer;
   } catch {
     parsed = undefined;
   }
 
   const restoredEnv = {
     ...(parsed?.env ?? {}),
-    ...stripMyAiEnv(env),
+    ...stripMcpEavesdropEnv(env),
   };
 
   const restored: McpServerEntry = {

@@ -1,7 +1,7 @@
 /**
  * Shared IPC Daemon
  *
- * Exposes a Unix socket HTTP server at ~/.myai/ipc.sock — extension instance IPC
+ * Exposes a Unix socket HTTP server at ~/.mcpEavesdrop/ipc.sock — extension instance IPC
  * (register, deregister, heartbeat, SSE events, connections, shutdown, telemetry,
  *  internal/clear).
  *
@@ -24,10 +24,10 @@ import { McpToolEvent } from '../types';
 // ---------------------------------------------------------------------------
 
 const HOME = os.homedir();
-const MYAI_DIR = path.join(HOME, '.myai');
+const MCPEAVESDROP_DIR = path.join(HOME, '.mcpEavesdrop');
 import { DAEMON_SOCKET_PATH } from './constants';
 
-const DAEMON_JSON_PATH = path.join(MYAI_DIR, 'daemon.json');
+const DAEMON_JSON_PATH = path.join(MCPEAVESDROP_DIR, 'daemon.json');
 const DEFAULT_LOG_IDE = 'test';
 const DEFAULT_LOG_WORKSPACE = 'mock';
 
@@ -70,7 +70,7 @@ function broadcastEvent(event: McpToolEvent): void {
 }
 
 function writeDaemonJson(): void {
-  fs.mkdirSync(MYAI_DIR, { recursive: true });
+  fs.mkdirSync(MCPEAVESDROP_DIR, { recursive: true });
   fs.writeFileSync(
     DAEMON_JSON_PATH,
     JSON.stringify({ pid: process.pid, socketPath: DAEMON_SOCKET_PATH, startedAt: Date.now() }),
@@ -82,7 +82,7 @@ function scheduleIdleExit(): void {
   if (idleTimer) return;
   idleTimer = setTimeout(() => {
     if (registry.size() === 0) {
-      process.stderr.write('myai-daemon: registry empty, exiting\n');
+      process.stderr.write('mcpEavesdrop-daemon: registry empty, exiting\n');
       process.exit(0);
     }
     idleTimer = undefined;
@@ -103,7 +103,7 @@ function cancelIdleExit(): void {
 setInterval(() => {
   const evicted = registry.evictStale(90_000);
   for (const id of evicted) {
-    process.stderr.write(`myai-daemon: evicted stale connection ${id}\n`);
+    process.stderr.write(`mcpEavesdrop-daemon: evicted stale connection ${id}\n`);
     const stream = sseStreams.get(id);
     if (stream) {
       try { stream.end(); } catch { /* ignore */ }
@@ -298,7 +298,7 @@ function createUnixServer(): http.Server {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  fs.mkdirSync(MYAI_DIR, { recursive: true });
+  fs.mkdirSync(MCPEAVESDROP_DIR, { recursive: true });
 
   // Clean up stale socket
   if (process.platform !== 'win32') {
@@ -315,7 +315,7 @@ async function main(): Promise<void> {
       if (process.platform !== 'win32') {
         try { fs.chmodSync(DAEMON_SOCKET_PATH, 0o600); } catch { /* ignore */ }
       }
-      process.stderr.write(`myai-daemon: listening on ${DAEMON_SOCKET_PATH}\n`);
+      process.stderr.write(`mcpEavesdrop-daemon: listening on ${DAEMON_SOCKET_PATH}\n`);
       resolve();
     });
   });
@@ -325,6 +325,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  process.stderr.write(`myai-daemon: startup failed: ${String(err)}\n`);
+  process.stderr.write(`mcpEavesdrop-daemon: startup failed: ${String(err)}\n`);
   process.exit(1);
 });

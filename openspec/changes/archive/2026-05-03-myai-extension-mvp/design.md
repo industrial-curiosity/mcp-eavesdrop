@@ -66,11 +66,11 @@ This design introduces a transparent proxy layer that sits between the agent and
 
 ### 7. IPC Unix domain socket for proxy port discovery
 
-**Decision:** The extension exposes the proxy port via a Unix domain socket at `$TMPDIR/myai-extension.sock`. Any client that connects receives `{"port": N}` as a single newline-terminated JSON line, then the server closes the connection.
+**Decision:** The extension exposes the proxy port via a Unix domain socket at `$TMPDIR/mcpEavesdrop-extension.sock`. Any client that connects receives `{"port": N}` as a single newline-terminated JSON line, then the server closes the connection.
 
 **Rationale:** The proxy binds to a random OS-assigned port each activation. External tools (test scripts, other processes) need a reliable way to discover the current port without manual lookup. A Unix socket is ephemeral (no file persists between sessions), avoids race conditions inherent in reading a port file, and is connection-based so there is no ambiguity about whether the value is stale.
 
-**Alternative considered:** Writing the port to a temp file (`$TMPDIR/myai-proxy.port`) — rejected because a file can be read before it is written (race), may persist across crashes leaving a stale value, and requires explicit cleanup.
+**Alternative considered:** Writing the port to a temp file (`$TMPDIR/mcpEavesdrop-proxy.port`) — rejected because a file can be read before it is written (race), may persist across crashes leaving a stale value, and requires explicit cleanup.
 
 ---
 

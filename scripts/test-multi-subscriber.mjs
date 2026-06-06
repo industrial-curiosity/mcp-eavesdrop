@@ -15,7 +15,7 @@ import os from 'os';
 import path from 'path';
 
 const HOME = os.homedir();
-const SOCKET = path.join(HOME, '.myai', 'ipc.sock');
+const SOCKET = path.join(HOME, '.mcpEavesdrop', 'ipc.sock');
 const log = (...args) => console.log('[multi-sub]', ...args);
 const fail = (msg) => { console.error('[multi-sub] FAIL:', msg); process.exit(1); };
 

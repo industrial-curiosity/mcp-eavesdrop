@@ -75,8 +75,8 @@
 
 ## 12. Restart daemon command
 
-- [x] 12.1 Register `myai.restartDaemon` in `src/extension.ts`
+- [x] 12.1 Register `mcpEavesdrop.restartDaemon` in `src/extension.ts`
 - [x] 12.2 Implement restart flow in `src/extension.ts`: force shutdown daemon, bootstrap daemon, re-register instance, and restore monitoring/status messages
-- [x] 12.3 Update command contributions in `package.json` with title `MyAI: Restart Daemon`
+- [x] 12.3 Update command contributions in `package.json` with title `MCP Eavesdrop: Restart Daemon`
 - [x] 12.4 Update README and docs/spec.md with restart command behavior and operational guidance
 - [x] 12.5 Add/extend test coverage or manual test steps for restart command behavior in `docs/testing.md`

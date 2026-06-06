@@ -20,7 +20,7 @@ AI agents running in VS Code invoke MCP tools, but there's no visibility into wh
 
 ## Impact
 
-- Adds new VS Code commands: `myai.openPanel`, `myai.clearSession`, `myai.showMcpConfig`
+- Adds new VS Code commands: `mcpEavesdrop.openPanel`, `mcpEavesdrop.clearSession`, `mcpEavesdrop.showMcpConfig`
 - New runtime dependency on a locally-spawned child process (the proxy server)
 - Users must point their MCP client config to the proxy URL — the extension will assist with this
 - New npm dependencies: `@modelcontextprotocol/sdk`, `ws`

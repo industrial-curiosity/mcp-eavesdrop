@@ -8,7 +8,7 @@ export class AgentPanel {
   public static currentPanel: AgentPanel | undefined;
   public static onDidDispose: (() => void) | undefined;
   public static onPanelReady: (() => void) | undefined;
-  private static readonly viewType = 'myaiAgentMonitor';
+  private static readonly viewType = 'mcpEavesdropAgentMonitor';
 
   public static postMessage(message: unknown): void {
     AgentPanel.currentPanel?._panel.webview.postMessage(message);
@@ -100,7 +100,7 @@ export class AgentPanel {
       }
 
       case 'clearSession':
-        vscode.commands.executeCommand('myai.clearSession');
+        vscode.commands.executeCommand('mcpEavesdrop.clearSession');
         break;
     }
   }
@@ -110,7 +110,7 @@ export class AgentPanel {
   // ---------------------------------------------------------------------------
 
   private _loadHistory(): unknown[] {
-    const logsDir = path.join(os.homedir(), '.myai', 'logs');
+    const logsDir = path.join(os.homedir(), '.mcpEavesdrop', 'logs');
     const events: unknown[] = [];
     try {
       const ideDirs = fs.readdirSync(logsDir, { withFileTypes: true })

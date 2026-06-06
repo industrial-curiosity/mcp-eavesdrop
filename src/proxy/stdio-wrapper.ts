@@ -1,4 +1,4 @@
-// MYAI_WRAPPER_VERSION=6
+// MCPEAVESDROP_WRAPPER_VERSION=6
 import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as https from 'node:https';
@@ -6,13 +6,13 @@ import { spawn } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import { unwrapEntry } from '../mcp-wrap';
 import {
-  MYAI_CONFIG_PATH,
-  MYAI_EXT_DIR,
-  MYAI_IDE,
-  MYAI_REAL_SERVER,
-  MYAI_REAL_URL,
-  MYAI_SERVER_NAME,
-  MYAI_WORKSPACE_SLUG,
+  MCPEAVESDROP_CONFIG_PATH,
+  MCPEAVESDROP_EXT_DIR,
+  MCPEAVESDROP_IDE,
+  MCPEAVESDROP_REAL_SERVER,
+  MCPEAVESDROP_REAL_URL,
+  MCPEAVESDROP_SERVER_NAME,
+  MCPEAVESDROP_WORKSPACE_SLUG,
 } from '../types';
 
 // These values are injected at deploy time by wrapper-deploy.ts
@@ -62,9 +62,9 @@ function getEnv(name: string): string | undefined {
 }
 
 function parseRealServer(): { command: string; args: string[]; env: Record<string, string> } {
-  const raw = getEnv(MYAI_REAL_SERVER);
+  const raw = getEnv(MCPEAVESDROP_REAL_SERVER);
   if (!raw) {
-    throw new Error(`${MYAI_REAL_SERVER} is missing`);
+    throw new Error(`${MCPEAVESDROP_REAL_SERVER} is missing`);
   }
 
   const parsed = JSON.parse(raw) as {
@@ -74,7 +74,7 @@ function parseRealServer(): { command: string; args: string[]; env: Record<strin
   };
 
   if (!parsed.command) {
-    throw new Error(`Missing real server command in ${MYAI_REAL_SERVER}`);
+    throw new Error(`Missing real server command in ${MCPEAVESDROP_REAL_SERVER}`);
   }
 
   return {
@@ -105,7 +105,7 @@ function postTelemetry(socketPath: string, event: TelemetryEvent): void {
     });
 
     request.on('error', (error) => {
-      process.stderr.write(`myai-wrapper: telemetry failed: ${error.message}\n`);
+      process.stderr.write(`mcpEavesdrop-wrapper: telemetry failed: ${error.message}\n`);
     });
 
     request.setTimeout(500, () => {
@@ -115,7 +115,7 @@ function postTelemetry(socketPath: string, event: TelemetryEvent): void {
     request.write(payload);
     request.end();
   } catch (error) {
-    process.stderr.write(`myai-wrapper: telemetry threw: ${String(error)}\n`);
+    process.stderr.write(`mcpEavesdrop-wrapper: telemetry threw: ${String(error)}\n`);
   }
 }
 
@@ -123,11 +123,11 @@ function writeLocalLog(event: TelemetryEvent, ide: string, workspaceSlug: string
   try {
     const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
     const date = new Date(event.timestamp).toISOString().slice(0, 10); // YYYY-MM-DD
-    const logDir = `${home}/.myai/logs/${ide}/${workspaceSlug}/${date}`;
+    const logDir = `${home}/.mcpEavesdrop/logs/${ide}/${workspaceSlug}/${date}`;
     fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(`${logDir}/${serverName}.jsonl`, JSON.stringify(event) + '\n', 'utf8');
   } catch (error) {
-    process.stderr.write(`myai-wrapper: log write failed: ${String(error)}\n`);
+    process.stderr.write(`mcpEavesdrop-wrapper: log write failed: ${String(error)}\n`);
   }
 }
 
@@ -148,12 +148,12 @@ interface DaemonJson {
 
 function readDaemonJson(): DaemonJson | undefined {
   const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
-  return readJsonFile<DaemonJson>(home + '/.myai/daemon.json');
+  return readJsonFile<DaemonJson>(home + '/.mcpEavesdrop/daemon.json');
 }
 
 function selfHealConfig(): void {
-  const configPath = getEnv(MYAI_CONFIG_PATH);
-  const serverName = getEnv(MYAI_SERVER_NAME);
+  const configPath = getEnv(MCPEAVESDROP_CONFIG_PATH);
+  const serverName = getEnv(MCPEAVESDROP_SERVER_NAME);
 
   if (!configPath || !serverName) {
     return;
@@ -180,7 +180,7 @@ function selfHealConfig(): void {
     try {
       fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
     } catch (error) {
-      process.stderr.write(`myai-wrapper: self-heal write failed: ${String(error)}\n`);
+      process.stderr.write(`mcpEavesdrop-wrapper: self-heal write failed: ${String(error)}\n`);
     }
     return;
   }
@@ -191,7 +191,7 @@ function spawnRealWithInheritedStdio(): void {
   try {
     real = parseRealServer();
   } catch (error) {
-    process.stderr.write(`myai-wrapper: ${String(error)}\n`);
+    process.stderr.write(`mcpEavesdrop-wrapper: ${String(error)}\n`);
     process.exit(1);
     return;
   }
@@ -209,7 +209,7 @@ function spawnRealWithInheritedStdio(): void {
   });
 
   child.on('error', (error) => {
-    process.stderr.write(`myai-wrapper: failed to spawn real server: ${error.message}\n`);
+    process.stderr.write(`mcpEavesdrop-wrapper: failed to spawn real server: ${error.message}\n`);
     process.exit(1);
   });
 }
@@ -274,17 +274,17 @@ function parseNewlineDelimited(buffer: string): { messages: JsonRpcMessage[]; re
 }
 
 async function main(): Promise<void> {
-  const extensionDir = getEnv(MYAI_EXT_DIR);
+  const extensionDir = getEnv(MCPEAVESDROP_EXT_DIR);
   if (extensionDir && !fs.existsSync(extensionDir)) {
     selfHealConfig();
     spawnRealWithInheritedStdio();
     return;
   }
 
-  const ide = getEnv(MYAI_IDE) ?? 'unknown';
-  const workspaceSlug = getEnv(MYAI_WORKSPACE_SLUG) ?? 'unknown';
-  const realUrl = getEnv(MYAI_REAL_URL);
-  const realServer = getEnv(MYAI_REAL_SERVER);
+  const ide = getEnv(MCPEAVESDROP_IDE) ?? 'unknown';
+  const workspaceSlug = getEnv(MCPEAVESDROP_WORKSPACE_SLUG) ?? 'unknown';
+  const realUrl = getEnv(MCPEAVESDROP_REAL_URL);
+  const realServer = getEnv(MCPEAVESDROP_REAL_SERVER);
 
   // HTTP direct mode: MCP entry was originally an HTTP server
   if (realUrl && !realServer) {
@@ -296,7 +296,7 @@ async function main(): Promise<void> {
   try {
     real = parseRealServer();
   } catch (error) {
-    process.stderr.write(`myai-wrapper: ${String(error)}\n`);
+    process.stderr.write(`mcpEavesdrop-wrapper: ${String(error)}\n`);
     process.exit(1);
     return;
   }
@@ -318,7 +318,7 @@ async function main(): Promise<void> {
   child.stderr.pipe(process.stderr);
 
   const trackedCalls = new Map<string, TrackedCall>();
-  const serverName = getEnv(MYAI_SERVER_NAME);
+  const serverName = getEnv(MCPEAVESDROP_SERVER_NAME);
 
   let framedRemainder: Buffer<ArrayBufferLike> = Buffer.alloc(0);
   let ndjsonRemainder = '';
@@ -370,14 +370,14 @@ async function main(): Promise<void> {
   });
 
   child.on('error', (error) => {
-    process.stderr.write(`myai-wrapper: child process error: ${error.message}\n`);
+    process.stderr.write(`mcpEavesdrop-wrapper: child process error: ${error.message}\n`);
     process.exit(1);
   });
 }
 
 /**
  * HTTP direct mode: forward stdin JSON-RPC → real HTTP server → stdout
- * Used when the original MCP entry was an HTTP server (MYAI_REAL_URL set, MYAI_REAL_SERVER absent).
+ * Used when the original MCP entry was an HTTP server (MCPEAVESDROP_REAL_URL set, MCPEAVESDROP_REAL_SERVER absent).
  * Logs events locally and sends telemetry to daemon for live-stream fanout.
  */
 async function runHttpDirectMode(
@@ -386,7 +386,7 @@ async function runHttpDirectMode(
   realUrl: string,
   socketPath: string,
 ): Promise<void> {
-  const serverName = getEnv(MYAI_SERVER_NAME) ?? 'mcp';
+  const serverName = getEnv(MCPEAVESDROP_SERVER_NAME) ?? 'mcp';
   let ndjsonRemainder = '';
 
   return new Promise((resolve) => {
@@ -470,7 +470,7 @@ async function handleHttpDirectMessage(
       postTelemetry(socketPath, finishedEvent);
     }
   } catch (err) {
-    process.stderr.write(`myai-wrapper: HTTP direct forward error: ${String(err)}\n`);
+    process.stderr.write(`mcpEavesdrop-wrapper: HTTP direct forward error: ${String(err)}\n`);
     const rpcError = JSON.stringify({
       jsonrpc: '2.0',
       id: message.id ?? null,
@@ -629,6 +629,6 @@ function handleJsonRpc(
 }
 
 main().catch((error) => {
-  process.stderr.write(`myai-wrapper: fatal error: ${String(error)}\n`);
+  process.stderr.write(`mcpEavesdrop-wrapper: fatal error: ${String(error)}\n`);
   process.exit(1);
 });

@@ -6,7 +6,7 @@
 
 ### Requirement: IPC socket exposes proxy port to external clients
 **Reason**: The daemon owns the Unix socket. The extension no longer binds its own socket; it connects as a client.
-**Migration**: External clients that previously read the proxy port from the socket should read `~/.myai/daemon.json` instead.
+**Migration**: External clients that previously read the proxy port from the socket should read `~/.mcpEavesdrop/daemon.json` instead.
 
 ### Requirement: Extension cleans up proxy on deactivation
 **Reason**: The extension no longer owns a proxy child process. On deactivation it deregisters from the daemon and conditionally shuts it down.
@@ -43,13 +43,13 @@ Each wrapped stdio server entry in `mcp.json` SHALL embed the original server co
 #### Scenario: Wrapped entry structure
 - **WHEN** a stdio entry is wrapped
 - **THEN** `command` SHALL be `"node"`
-- **THEN** `args` SHALL be `["<absolute-path-to-~/.myai/stdio-wrapper.js>", "<server-name>"]`
-- **THEN** `env` SHALL contain all original env vars plus: `MYAI_IPC_SOCKET` (path to `~/.myai/ipc.sock`), `MYAI_REAL_SERVER`, `MYAI_SERVER_NAME`, `MYAI_CONFIG_PATH`, `MYAI_EXT_DIR`, `MYAI_WRAPPER_VERSION`, `MYAI_IDE`, `MYAI_WORKSPACE_SLUG`
+- **THEN** `args` SHALL be `["<absolute-path-to-~/.mcpEavesdrop/stdio-wrapper.js>", "<server-name>"]`
+- **THEN** `env` SHALL contain all original env vars plus: `MCPEAVESDROP_IPC_SOCKET` (path to `~/.mcpEavesdrop/ipc.sock`), `MCPEAVESDROP_REAL_SERVER`, `MCPEAVESDROP_SERVER_NAME`, `MCPEAVESDROP_CONFIG_PATH`, `MCPEAVESDROP_EXT_DIR`, `MCPEAVESDROP_WRAPPER_VERSION`, `MCPEAVESDROP_IDE`, `MCPEAVESDROP_WORKSPACE_SLUG`
 
 #### Scenario: Wrapped HTTP entry structure
 - **WHEN** an HTTP/SSE server entry is wrapped
 - **THEN** the entry SHALL be converted to a stdio entry pointing to `stdio-wrapper.js`
-- **THEN** `env` SHALL contain `MYAI_REAL_URL` (original URL), `MYAI_SERVER_NAME`, `MYAI_CONFIG_PATH`, `MYAI_WRAPPER_VERSION`, `MYAI_IDE`, `MYAI_WORKSPACE_SLUG`
+- **THEN** `env` SHALL contain `MCPEAVESDROP_REAL_URL` (original URL), `MCPEAVESDROP_SERVER_NAME`, `MCPEAVESDROP_CONFIG_PATH`, `MCPEAVESDROP_WRAPPER_VERSION`, `MCPEAVESDROP_IDE`, `MCPEAVESDROP_WORKSPACE_SLUG`
 - **THEN** no port number SHALL appear in `mcp.json`; the wrapper reads the proxy port from its embedded constant
 
 ---
@@ -57,10 +57,10 @@ Each wrapped stdio server entry in `mcp.json` SHALL embed the original server co
 ## ADDED Requirements
 
 ### Requirement: Extension probes for daemon and bootstraps if absent
-On activation, the extension SHALL attempt to connect to `~/.myai/ipc.sock`. If the connection fails, it SHALL acquire a bootstrap lock and spawn the daemon. If lock acquisition fails (another instance is bootstrapping), it SHALL retry the connection after 200ms.
+On activation, the extension SHALL attempt to connect to `~/.mcpEavesdrop/ipc.sock`. If the connection fails, it SHALL acquire a bootstrap lock and spawn the daemon. If lock acquisition fails (another instance is bootstrapping), it SHALL retry the connection after 200ms.
 
 #### Scenario: Daemon already running
-- **WHEN** the extension activates and `~/.myai/ipc.sock` is connectable
+- **WHEN** the extension activates and `~/.mcpEavesdrop/ipc.sock` is connectable
 - **THEN** the extension SHALL skip spawning and proceed directly to registration
 
 #### Scenario: Daemon not running, lock acquired
@@ -77,7 +77,7 @@ On activation, the extension SHALL attempt to connect to `~/.myai/ipc.sock`. If 
 #### Scenario: Daemon fails to start within timeout
 - **WHEN** the socket is not connectable after 5 seconds
 - **THEN** the extension SHALL log an error and show a VS Code error message
-- **THEN** the `myai.openPanel` command SHALL be disabled
+- **THEN** the `mcpEavesdrop.openPanel` command SHALL be disabled
 
 ---
 
@@ -120,12 +120,12 @@ If the extension's connection to the daemon is lost for any reason, it SHALL att
 - **THEN** the extension SHALL re-register and resubscribe to the SSE stream
 
 #### Scenario: Daemon found dead during reconnect
-- **WHEN** a reconnect attempt fails and the daemon's PID (from `~/.myai/daemon.pid`) is not a running process
+- **WHEN** a reconnect attempt fails and the daemon's PID (from `~/.mcpEavesdrop/daemon.pid`) is not a running process
 - **THEN** the extension SHALL replay the full startup sequence (lock → spawn → connect)
 
 #### Scenario: Three consecutive reconnect failures
 - **WHEN** three consecutive reconnect attempts fail within the retry loop
-- **THEN** the extension SHALL show a VS Code warning: "MyAI: Lost connection to daemon" with buttons "Keep Trying" and "Restart Daemon"
+- **THEN** the extension SHALL show a VS Code warning: "MCP Eavesdrop: Lost connection to daemon" with buttons "Keep Trying" and "Restart Daemon"
 - **WHEN** the user selects "Restart Daemon"
 - **THEN** the extension SHALL POST `{ "force": true }` to `/shutdown` (if daemon responds), then replay startup
 

@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 
 const mod = await import('../dist/lib/stale-check.js');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'myai-stale-test-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mcpEavesdrop-stale-test-'));
 const configPath = path.join(tmp, 'mcp.json');
 const existingWrapper = path.join(tmp, 'wrapper.js');
 fs.writeFileSync(existingWrapper, '// wrapper\n', 'utf8');
@@ -15,12 +15,12 @@ const config = {
     staleServer: {
       command: 'node',
       args: [path.join(tmp, 'missing-wrapper.js')],
-      env: { MYAI_IPC_SOCKET: '/tmp/myai.sock' },
+      env: { MCPEAVESDROP_IPC_SOCKET: '/tmp/mcpEavesdrop.sock' },
     },
     healthyServer: {
       command: 'node',
       args: [existingWrapper],
-      env: { MYAI_IPC_SOCKET: '/tmp/myai.sock' },
+      env: { MCPEAVESDROP_IPC_SOCKET: '/tmp/mcpEavesdrop.sock' },
     },
   },
 };

@@ -11,25 +11,25 @@ The extension SHALL activate on `onStartupFinished` and spawn the MCP proxy serv
 
 #### Scenario: Proxy fails to start within timeout
 - **WHEN** the proxy child process does not emit a port within 5 seconds
-- **THEN** the extension SHALL log an error and disable the `myai.openPanel` command
+- **THEN** the extension SHALL log an error and disable the `mcpEavesdrop.openPanel` command
 
 ---
 
 ### Requirement: Extension registers the openPanel command
-The extension SHALL register a `myai.openPanel` command that opens the AI Agent Monitor WebView panel.
+The extension SHALL register a `mcpEavesdrop.openPanel` command that opens the AI Agent Monitor WebView panel.
 
 #### Scenario: Command invoked
-- **WHEN** the user runs `myai.openPanel` from the Command Palette
+- **WHEN** the user runs `mcpEavesdrop.openPanel` from the Command Palette
 - **THEN** the extension SHALL open (or reveal) the `AgentPanel` WebView
 - **THEN** the extension SHALL send an `init` message to the panel with `{ proxyPort: number }`
 
 ---
 
 ### Requirement: Extension registers the clearSession command
-The extension SHALL register a `myai.clearSession` command that clears the current session log.
+The extension SHALL register a `mcpEavesdrop.clearSession` command that clears the current session log.
 
 #### Scenario: clearSession command invoked
-- **WHEN** the user runs `myai.clearSession` from the Command Palette or the panel sends a `clearSession` message
+- **WHEN** the user runs `mcpEavesdrop.clearSession` from the Command Palette or the panel sends a `clearSession` message
 - **THEN** the extension host SHALL broadcast a `session_cleared` event to all WebSocket clients via the proxy
 
 ---
@@ -49,10 +49,10 @@ The extension SHALL terminate the proxy child process cleanly when VS Code deact
 ---
 
 ### Requirement: IPC socket exposes proxy port to external clients
-The extension SHALL open a Unix domain socket at `$TMPDIR/myai-extension.sock` that responds to each connection with `{"port": <number>}` and then closes the connection.
+The extension SHALL open a Unix domain socket at `$TMPDIR/mcpEavesdrop-extension.sock` that responds to each connection with `{"port": <number>}` and then closes the connection.
 
 #### Scenario: External client queries port
-- **WHEN** any local process connects to `$TMPDIR/myai-extension.sock`
+- **WHEN** any local process connects to `$TMPDIR/mcpEavesdrop-extension.sock`
 - **THEN** the extension SHALL send `{"port": <number>}\n` and close the connection
 - **THEN** if the proxy has not yet started, `port` SHALL be `null`
 

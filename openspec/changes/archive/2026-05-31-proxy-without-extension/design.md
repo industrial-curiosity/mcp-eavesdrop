@@ -20,13 +20,13 @@ The daemon currently handles: extension IPC (Unix socket), TCP proxy forwarding,
 
 ### 1. Wrapper owns log persistence; daemon owns live-stream
 
-The wrapper appends each telemetry event to `~/.myai/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl` synchronously, before attempting daemon delivery. The daemon's `/telemetry` handler drops the disk write and broadcasts only. This cleanly separates: "did this call happen?" (always answerable from disk) from "can I see it live?" (only when extension is connected).
+The wrapper appends each telemetry event to `~/.mcpEavesdrop/logs/<ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl` synchronously, before attempting daemon delivery. The daemon's `/telemetry` handler drops the disk write and broadcasts only. This cleanly separates: "did this call happen?" (always answerable from disk) from "can I see it live?" (only when extension is connected).
 
 Each wrapper process writes to its own per-server file, so no cross-process locking is needed. POSIX `O_APPEND` atomicity covers the record sizes involved.
 
 ### 2. HTTP direct mode replaces HTTP bridge mode
 
-The wrapper's HTTP mode calls upstream directly using the same `http`/`https` forwarding logic the daemon currently uses in `forwardToUpstream`. Request arrives on stdin, gets forwarded to `MYAI_REAL_URL`, response written to stdout. `handleJsonRpc` is called on both the outgoing request and incoming response, identical to how stdio mode intercepts its byte stream.
+The wrapper's HTTP mode calls upstream directly using the same `http`/`https` forwarding logic the daemon currently uses in `forwardToUpstream`. Request arrives on stdin, gets forwarded to `MCPEAVESDROP_REAL_URL`, response written to stdout. `handleJsonRpc` is called on both the outgoing request and incoming response, identical to how stdio mode intercepts its byte stream.
 
 ### 3. `handleJsonRpc` is decoupled from daemon reachability
 
