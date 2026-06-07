@@ -2,9 +2,10 @@
   "name": "mcp-eavesdrop",
   "displayName": "MCP Eavesdrop - Agent MCP Call Monitor",
   "description": "Monitor MCP tool calls from AI agents in real time",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "publisher": "industrial-curiosity",
+  "icon": "assets/mcp-eavesdrop-logo.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/industrial-curiosity/mcp-eavesdrop.git"

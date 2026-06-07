@@ -1,5 +1,7 @@
 # MCP Eavesdrop Extension
 
+![MCP Eavesdrop Banner](https://industrialcuriosity.com/images/mcp-eavesdrop/mcp-eavesdrop-large.png)
+
 *Pronounced "em-see-peevesdrop".*
 
 ## What Is This?
@@ -7,6 +9,8 @@
 `mcpEavesdrop-extension` is a VS Code-based IDE extension that provides real-time and post-hoc visibility into AI agent behavior, with a focus on MCP (Model Context Protocol) tool usage.
 
 When an AI agent (Copilot, Cursor, or any MCP-compatible agent) processes a prompt, the extension shows you what's happening behind the scenes: which tools are being called, with what arguments, how long each call takes, and what was returned. After the agent finishes, you can review the full session timeline.
+
+![MCP Eavesdrop Screenshot](https://industrialcuriosity.com/images/mcp-eavesdrop/mcp-eavesdrop-screenshot.png)
 
 ## Why This Exists
 

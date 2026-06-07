@@ -18,3 +18,5 @@ scripts/**
 .cursor/**
 .gitignore
 troubleshooting/**
+assets/mcp-eavesdrop-large.png
+assets/mcp-eavesdrop-screenshot.png
