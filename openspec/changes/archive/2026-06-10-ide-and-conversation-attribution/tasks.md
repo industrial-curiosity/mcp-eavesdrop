@@ -20,7 +20,7 @@
 
 - [x] 4.1 Update wrap/unwrap tests (for example `scripts/test-mcp-wrap.mjs`) to assert workspace env key is not written and is removed when encountered
 - [x] 4.2 Update wrapper telemetry tests (`scripts/test-wrapper.mjs`) to assert `conversationId` remains absent when `_meta` is missing
-- [ ] 4.3 Update panel/daemon integration tests to reflect IDE + conversation filtering and column expectations
+- [x] 4.3 Update panel/daemon integration tests to reflect IDE + conversation filtering and column expectations
 
 ## 5. Documentation
 
