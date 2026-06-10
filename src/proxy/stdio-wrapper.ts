@@ -519,6 +519,107 @@ function forwardDirectHttp(url: string, body: string): Promise<string> {
   });
 }
 
+interface JsonRpcContext {
+  socketPath: string;
+  serverName?: string;
+  ide?: string;
+  now: number;
+  resolvedIde: string;
+  resolvedServerName: string;
+}
+
+interface ExtractedMeta {
+  conversationIdStr?: string;
+  requestIdStr?: string;
+  metaObj?: Record<string, unknown>;
+}
+
+function extractMetadata(message: JsonRpcMessage): ExtractedMeta {
+  const conversationId = message.params?._meta?.['vscode.conversationId'];
+  const reqId = message.params?._meta?.['vscode.requestId'];
+  const conversationIdStr = typeof conversationId === 'string' ? conversationId : undefined;
+  const requestIdStr = typeof reqId === 'string' ? reqId : undefined;
+  const rawMeta = message.params?._meta;
+  const metaObj = rawMeta && Object.keys(rawMeta).length > 0 ? rawMeta : undefined;
+  return { conversationIdStr, requestIdStr, metaObj };
+}
+
+function handleToolCall(
+  message: JsonRpcMessage,
+  trackedCalls: Map<string, TrackedCall>,
+  ctx: JsonRpcContext,
+): void {
+  const requestId = message.id;
+  const eventId = crypto.randomUUID();
+  const { conversationIdStr, requestIdStr, metaObj } = extractMetadata(message);
+  const startedEvent: TelemetryEvent = {
+    id: eventId,
+    type: 'tool_call_started',
+    timestamp: ctx.now,
+    toolName: message.params?.name,
+    serverName: ctx.serverName,
+    arguments: message.params?.arguments,
+    ide: ctx.ide,
+    ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
+    ...(requestIdStr !== undefined && { requestId: requestIdStr }),
+    ...(metaObj !== undefined && { meta: metaObj }),
+  };
+  writeLocalLog(startedEvent, ctx.resolvedIde, ctx.resolvedServerName);
+  postTelemetry(ctx.socketPath, startedEvent);
+
+  if (requestId !== undefined && requestId !== null) {
+    trackedCalls.set(String(requestId), {
+      eventId,
+      toolName: message.params?.name,
+      startedAt: ctx.now,
+      ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
+      ...(requestIdStr !== undefined && { requestId: requestIdStr }),
+      ...(metaObj !== undefined && { meta: metaObj }),
+    });
+  }
+}
+
+function handleToolResponse(
+  message: JsonRpcMessage,
+  tracked: TrackedCall,
+  ctx: JsonRpcContext,
+): void {
+  if (message.error === undefined) {
+    const completedEvent: TelemetryEvent = {
+      id: tracked.eventId,
+      type: 'tool_call_completed',
+      timestamp: ctx.now,
+      toolName: tracked.toolName,
+      serverName: ctx.serverName,
+      result: message.result,
+      durationMs: ctx.now - tracked.startedAt,
+      ide: ctx.ide,
+      ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
+      ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
+      ...(tracked.meta !== undefined && { meta: tracked.meta }),
+    };
+    writeLocalLog(completedEvent, ctx.resolvedIde, ctx.resolvedServerName);
+    postTelemetry(ctx.socketPath, completedEvent);
+    return;
+  }
+
+  const failedEvent: TelemetryEvent = {
+    id: tracked.eventId,
+    type: 'tool_call_failed',
+    timestamp: ctx.now,
+    toolName: tracked.toolName,
+    serverName: ctx.serverName,
+    error: JSON.stringify(message.error),
+    durationMs: ctx.now - tracked.startedAt,
+    ide: ctx.ide,
+    ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
+    ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
+    ...(tracked.meta !== undefined && { meta: tracked.meta }),
+  };
+  writeLocalLog(failedEvent, ctx.resolvedIde, ctx.resolvedServerName);
+  postTelemetry(ctx.socketPath, failedEvent);
+}
+
 function handleJsonRpc(
   message: JsonRpcMessage,
   trackedCalls: Map<string, TrackedCall>,
@@ -529,42 +630,10 @@ function handleJsonRpc(
   const now = Date.now();
   const resolvedIde = ide ?? 'unknown';
   const resolvedServerName = serverName ?? 'unknown';
+  const ctx: JsonRpcContext = { socketPath, serverName, ide, now, resolvedIde, resolvedServerName };
 
   if (message.method === 'tools/call') {
-    const requestId = message.id;
-    const eventId = crypto.randomUUID();
-    const conversationId = message.params?._meta?.['vscode.conversationId'];
-    const reqId = message.params?._meta?.['vscode.requestId'];
-    const conversationIdStr = typeof conversationId === 'string' ? conversationId : undefined;
-    const requestIdStr = typeof reqId === 'string' ? reqId : undefined;
-    const rawMeta = message.params?._meta;
-    const metaObj = rawMeta && Object.keys(rawMeta).length > 0 ? rawMeta : undefined;
-    const startedEvent: TelemetryEvent = {
-      id: eventId,
-      type: 'tool_call_started',
-      timestamp: now,
-      toolName: message.params?.name,
-      serverName,
-      arguments: message.params?.arguments,
-      ide,
-      ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
-      ...(requestIdStr !== undefined && { requestId: requestIdStr }),
-      ...(metaObj !== undefined && { meta: metaObj }),
-    };
-    writeLocalLog(startedEvent, resolvedIde, resolvedServerName);
-    postTelemetry(socketPath, startedEvent);
-
-    if (requestId !== undefined && requestId !== null) {
-      trackedCalls.set(String(requestId), {
-        eventId,
-        toolName: message.params?.name,
-        startedAt: now,
-        ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
-        ...(requestIdStr !== undefined && { requestId: requestIdStr }),
-        ...(metaObj !== undefined && { meta: metaObj }),
-      });
-    }
-
+    handleToolCall(message, trackedCalls, ctx);
     return;
   }
 
@@ -578,41 +647,7 @@ function handleJsonRpc(
   }
 
   trackedCalls.delete(String(message.id));
-
-  if (message.error !== undefined) {
-    const failedEvent: TelemetryEvent = {
-      id: tracked.eventId,
-      type: 'tool_call_failed',
-      timestamp: now,
-      toolName: tracked.toolName,
-      serverName,
-      error: JSON.stringify(message.error),
-      durationMs: now - tracked.startedAt,
-      ide,
-      ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
-      ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
-      ...(tracked.meta !== undefined && { meta: tracked.meta }),
-    };
-    writeLocalLog(failedEvent, resolvedIde, resolvedServerName);
-    postTelemetry(socketPath, failedEvent);
-    return;
-  }
-
-  const completedEvent: TelemetryEvent = {
-    id: tracked.eventId,
-    type: 'tool_call_completed',
-    timestamp: now,
-    toolName: tracked.toolName,
-    serverName,
-    result: message.result,
-    durationMs: now - tracked.startedAt,
-    ide,
-    ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
-    ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
-    ...(tracked.meta !== undefined && { meta: tracked.meta }),
-  };
-  writeLocalLog(completedEvent, resolvedIde, resolvedServerName);
-  postTelemetry(socketPath, completedEvent);
+  handleToolResponse(message, tracked, ctx);
 }
 
 main().catch((error) => {

@@ -5,9 +5,11 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 
 export class AgentPanel {
-  public static currentPanel: AgentPanel | undefined;
-  public static onDidDispose: (() => void) | undefined;
-  public static onPanelReady: (() => void) | undefined;
+  // These static properties are intentionally mutable to track the singleton panel instance
+  // and lifecycle callbacks. They are assigned in createOrShow() and _dispose().
+  public static currentPanel: AgentPanel | undefined; // NOSONAR S1444
+  public static onDidDispose: (() => void) | undefined; // NOSONAR S1444
+  public static onPanelReady: (() => void) | undefined; // NOSONAR S1444
   private static readonly viewType = 'mcpEavesdropAgentMonitor';
 
   public static postMessage(message: unknown): void {

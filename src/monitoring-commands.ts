@@ -153,6 +153,23 @@ export function registerMonitoringCommands(
 }
 
 /** Log MCP config coverage for the active IDE (helps diagnose Cursor vs VS Code dev host). */
+function logCursorWorkspaceConfigSuggestion(
+  log: (line: string) => void,
+  workspaceFolder: string,
+): void {
+  const [cursorWs, vscodeWs] = resolveWorkspaceMcpConfigCandidates('cursor', workspaceFolder);
+  if (!fs.existsSync(cursorWs) && fs.existsSync(vscodeWs)) {
+    const config = readMcpConfig(vscodeWs);
+    const unwrapped = config ? countUnwrappedServers(config, 'mcpServers') : 0;
+    if (unwrapped > 0) {
+      log(
+        `MCP Eavesdrop: Cursor uses ${cursorWs} for workspace MCP; this repo only has ${vscodeWs}. ` +
+          'Run "MCP Eavesdrop: Enable MCP Monitoring" to wrap workspace servers, or add .cursor/mcp.json.',
+      );
+    }
+  }
+}
+
 export function logMcpConfigDiagnostics(
   ide: IdeKind,
   log: (line: string) => void,
@@ -171,16 +188,6 @@ export function logMcpConfigDiagnostics(
   }
 
   if (ide === 'cursor' && workspaceFolder) {
-    const [cursorWs, vscodeWs] = resolveWorkspaceMcpConfigCandidates('cursor', workspaceFolder);
-    if (!fs.existsSync(cursorWs) && fs.existsSync(vscodeWs)) {
-      const config = readMcpConfig(vscodeWs);
-      const unwrapped = config ? countUnwrappedServers(config, 'mcpServers') : 0;
-      if (unwrapped > 0) {
-        log(
-          `MCP Eavesdrop: Cursor uses ${cursorWs} for workspace MCP; this repo only has ${vscodeWs}. ` +
-            'Run "MCP Eavesdrop: Enable MCP Monitoring" to wrap workspace servers, or add .cursor/mcp.json.',
-        );
-      }
-    }
+    logCursorWorkspaceConfigSuggestion(log, workspaceFolder);
   }
 }
