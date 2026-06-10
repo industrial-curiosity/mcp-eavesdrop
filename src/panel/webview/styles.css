@@ -95,6 +95,33 @@ body {
   padding: 6px 8px;
 }
 
+.conn-header {
+  font-size: 0.75em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vscode-descriptionForeground);
+  margin: 8px 0 4px;
+}
+
+.conn-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82em;
+  margin-bottom: 4px;
+}
+
+.conn-row label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-empty {
+  font-size: 0.82em;
+  color: var(--vscode-descriptionForeground);
+}
+
 .main-content {
   flex: 1;
   display: flex;
@@ -280,4 +307,15 @@ body {
   flex-shrink: 0;
   opacity: 0.8;
   margin-left: 6px;
+}
+
+.entry-conversation {
+  font-size: 0.75em;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+  margin-left: 6px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

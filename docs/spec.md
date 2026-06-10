@@ -111,7 +111,7 @@ interface McpToolEvent {
   error?: string;          // present on failed
   durationMs?: number;     // present on completed/failed
   ide?: string;            // IDE identifier (vscode, cursor) — added by daemon
-  workspaceSlug?: string;  // workspace slug — added by daemon
+  workspaceSlug?: string;  // legacy field; new wrapper events do not derive attribution from workspace env
   conversationId?: string; // VS Code chat session ID — present when call originated from a chat session
   requestId?: string;      // VS Code chat request ID — future-proofed, captured but not displayed
   meta?: Record<string, unknown>; // full _meta object from JSON-RPC request — preserved for observability
@@ -155,8 +155,8 @@ interface McpToolEvent {
 ├────────────────────┬─────────────────────────────────────────┤
 │  Connections       │  [tool name…] [All servers▾] [All▾] [All▾] │
 │  sidebar           ├─────────────────────────────────────────┤
-│  ☑ vscode:ws1      │  ● file_search           12ms  ✓        │
-│  ☐ cursor:ws2      │  ● run_in_terminal       ...   ⟳        │
+│  ☑ vscode          │  ● file_search   vscode  conv-123 12ms ✓│
+│  ☐ cursor          │  ● run_in_terminal cursor not detected ⟳│
 │                    │  ● grep_search           8ms   ✓        │
 │                    │    ▼ Arguments                           │
 │                    │      { "query": "activation" }           │
@@ -168,11 +168,12 @@ interface McpToolEvent {
 **UI requirements:**
 
 - Panel body is a two-column flex layout: `.connections-sidebar` (180px fixed) and `.main-content` (remaining space)
-- The connections sidebar renders all active daemon connections and any observed non-connection event sources; each source has a checkbox to include/exclude its events; checkbox state is persisted in `localStorage`
+- The connections sidebar renders two filter groups (IDE and conversation ID), each with checkboxes to include/exclude matching events; checkbox state is persisted in `localStorage`
 - Filter bar sits above the log; contains five controls: sort toggle (newest first / oldest first), tool name text input, server select, status select (All / In-progress / Completed / Failed), time range select (All / Last hour / Today)
 - All four filter controls apply simultaneously (AND logic) via `reapplyFilters()`
 - Filter bar state is in-memory only and resets when the panel is reopened
 - Each log entry shows a left-side local date+time timestamp column sourced from `event.timestamp`
+- Each log entry displays IDE in the source column and conversation ID in a dedicated column (`not detected` when `conversationId` is missing)
 - In-progress tools display a spinner and no duration until completed
 - Failed tools display in red with the error message
 - A Refresh button in the toolbar re-runs initial data loading (`status`, `connections`, `history`) without reopening the panel

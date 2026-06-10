@@ -512,7 +512,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   registerMonitoringCommands(context, {
     ide: ideConfig.ide,
-    workspaceSlugProvider: () => registeredWorkspaceSlug,
   });
 
   if (context.globalState.get('panelWasOpen')) {

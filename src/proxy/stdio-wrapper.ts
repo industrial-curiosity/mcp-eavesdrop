@@ -12,7 +12,6 @@ import {
   MCPEAVESDROP_REAL_SERVER,
   MCPEAVESDROP_REAL_URL,
   MCPEAVESDROP_SERVER_NAME,
-  MCPEAVESDROP_WORKSPACE_SLUG,
 } from '../types';
 
 // These values are injected at deploy time by wrapper-deploy.ts
@@ -119,11 +118,11 @@ function postTelemetry(socketPath: string, event: TelemetryEvent): void {
   }
 }
 
-function writeLocalLog(event: TelemetryEvent, ide: string, workspaceSlug: string, serverName: string): void {
+function writeLocalLog(event: TelemetryEvent, ide: string, serverName: string): void {
   try {
     const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
     const date = new Date(event.timestamp).toISOString().slice(0, 10); // YYYY-MM-DD
-    const logDir = `${home}/.mcpEavesdrop/logs/${ide}/${workspaceSlug}/${date}`;
+    const logDir = `${home}/.mcpEavesdrop/logs/${ide}/${date}`;
     fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(`${logDir}/${serverName}.jsonl`, JSON.stringify(event) + '\n', 'utf8');
   } catch (error) {
@@ -224,7 +223,7 @@ function parseLengthPrefixedFrames(buffer: Buffer<ArrayBufferLike>): { messages:
       break;
     }
 
-    const header = buffer.slice(cursor, separator).toString('utf8');
+    const header = buffer.subarray(cursor, separator).toString('utf8');
     const match = /content-length:\s*(\d+)/i.exec(header);
     if (!match) {
       break;
@@ -237,7 +236,7 @@ function parseLengthPrefixedFrames(buffer: Buffer<ArrayBufferLike>): { messages:
       break;
     }
 
-    const body = buffer.slice(bodyStart, bodyEnd).toString('utf8');
+    const body = buffer.subarray(bodyStart, bodyEnd).toString('utf8');
     try {
       messages.push(JSON.parse(body) as JsonRpcMessage);
     } catch {
@@ -249,7 +248,7 @@ function parseLengthPrefixedFrames(buffer: Buffer<ArrayBufferLike>): { messages:
 
   return {
     messages,
-    rest: buffer.slice(cursor),
+    rest: buffer.subarray(cursor),
   };
 }
 
@@ -282,13 +281,12 @@ async function main(): Promise<void> {
   }
 
   const ide = getEnv(MCPEAVESDROP_IDE) ?? 'unknown';
-  const workspaceSlug = getEnv(MCPEAVESDROP_WORKSPACE_SLUG) ?? 'unknown';
   const realUrl = getEnv(MCPEAVESDROP_REAL_URL);
   const realServer = getEnv(MCPEAVESDROP_REAL_SERVER);
 
   // HTTP direct mode: MCP entry was originally an HTTP server
   if (realUrl && !realServer) {
-    await runHttpDirectMode(ide, workspaceSlug, realUrl, DAEMON_SOCKET_PATH);
+    await runHttpDirectMode(ide, realUrl, DAEMON_SOCKET_PATH);
     return;
   }
 
@@ -331,13 +329,13 @@ async function main(): Promise<void> {
     const framedRequest = parseLengthPrefixedFrames(Buffer.concat([requestFramedRemainder, chunk]));
     requestFramedRemainder = framedRequest.rest;
     for (const message of framedRequest.messages) {
-      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide, workspaceSlug);
+      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide);
     }
 
     const ndjsonRequest = parseNewlineDelimited(requestNdjsonRemainder + chunk.toString('utf8'));
     requestNdjsonRemainder = ndjsonRequest.rest;
     for (const message of ndjsonRequest.messages) {
-      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide, workspaceSlug);
+      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide);
     }
   });
 
@@ -348,14 +346,14 @@ async function main(): Promise<void> {
     framedRemainder = framed.rest;
 
     for (const message of framed.messages) {
-      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide, workspaceSlug);
+      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide);
     }
 
     // Also support newline-delimited JSON streams.
     const ndjson = parseNewlineDelimited(ndjsonRemainder + chunk.toString('utf8'));
     ndjsonRemainder = ndjson.rest;
     for (const message of ndjson.messages) {
-      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide, workspaceSlug);
+      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide);
     }
   });
 
@@ -382,7 +380,6 @@ async function main(): Promise<void> {
  */
 async function runHttpDirectMode(
   ide: string,
-  workspaceSlug: string,
   realUrl: string,
   socketPath: string,
 ): Promise<void> {
@@ -394,7 +391,7 @@ async function runHttpDirectMode(
       const ndjson = parseNewlineDelimited(ndjsonRemainder + chunk.toString('utf8'));
       ndjsonRemainder = ndjson.rest;
       for (const message of ndjson.messages) {
-        void handleHttpDirectMessage(message, serverName, realUrl, socketPath, ide, workspaceSlug);
+        void handleHttpDirectMessage(message, serverName, realUrl, socketPath, ide);
       }
     });
 
@@ -411,7 +408,6 @@ async function handleHttpDirectMessage(
   realUrl: string,
   socketPath: string,
   ide: string,
-  workspaceSlug: string,
 ): Promise<void> {
   const now = Date.now();
   const isToolCall = message.method === 'tools/call';
@@ -429,9 +425,8 @@ async function handleHttpDirectMessage(
       serverName,
       arguments: message.params?.arguments,
       ide,
-      workspaceSlug,
     };
-    writeLocalLog(startedEvent, ide, workspaceSlug, serverName);
+    writeLocalLog(startedEvent, ide, serverName);
     postTelemetry(socketPath, startedEvent);
   }
 
@@ -454,7 +449,6 @@ async function handleHttpDirectMessage(
         error: String(parsed.error.message ?? 'Unknown error'),
         durationMs,
         ide,
-        workspaceSlug,
       } : {
         id: eventId,
         type: 'tool_call_completed',
@@ -464,9 +458,8 @@ async function handleHttpDirectMessage(
         result: parsed?.result,
         durationMs,
         ide,
-        workspaceSlug,
       };
-      writeLocalLog(finishedEvent, ide, workspaceSlug, serverName);
+      writeLocalLog(finishedEvent, ide, serverName);
       postTelemetry(socketPath, finishedEvent);
     }
   } catch (err) {
@@ -488,9 +481,8 @@ async function handleHttpDirectMessage(
         error: String(err),
         durationMs: Date.now() - startTime,
         ide,
-        workspaceSlug,
       };
-      writeLocalLog(failedEvent, ide, workspaceSlug, serverName);
+      writeLocalLog(failedEvent, ide, serverName);
       postTelemetry(socketPath, failedEvent);
     }
   }
@@ -527,55 +519,121 @@ function forwardDirectHttp(url: string, body: string): Promise<string> {
   });
 }
 
+interface JsonRpcContext {
+  socketPath: string;
+  serverName?: string;
+  ide?: string;
+  now: number;
+  resolvedIde: string;
+  resolvedServerName: string;
+}
+
+interface ExtractedMeta {
+  conversationIdStr?: string;
+  requestIdStr?: string;
+  metaObj?: Record<string, unknown>;
+}
+
+function extractMetadata(message: JsonRpcMessage): ExtractedMeta {
+  const conversationId = message.params?._meta?.['vscode.conversationId'];
+  const reqId = message.params?._meta?.['vscode.requestId'];
+  const conversationIdStr = typeof conversationId === 'string' ? conversationId : undefined;
+  const requestIdStr = typeof reqId === 'string' ? reqId : undefined;
+  const rawMeta = message.params?._meta;
+  const metaObj = rawMeta && Object.keys(rawMeta).length > 0 ? rawMeta : undefined;
+  return { conversationIdStr, requestIdStr, metaObj };
+}
+
+function handleToolCall(
+  message: JsonRpcMessage,
+  trackedCalls: Map<string, TrackedCall>,
+  ctx: JsonRpcContext,
+): void {
+  const requestId = message.id;
+  const eventId = crypto.randomUUID();
+  const { conversationIdStr, requestIdStr, metaObj } = extractMetadata(message);
+  const startedEvent: TelemetryEvent = {
+    id: eventId,
+    type: 'tool_call_started',
+    timestamp: ctx.now,
+    toolName: message.params?.name,
+    serverName: ctx.serverName,
+    arguments: message.params?.arguments,
+    ide: ctx.ide,
+    ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
+    ...(requestIdStr !== undefined && { requestId: requestIdStr }),
+    ...(metaObj !== undefined && { meta: metaObj }),
+  };
+  writeLocalLog(startedEvent, ctx.resolvedIde, ctx.resolvedServerName);
+  postTelemetry(ctx.socketPath, startedEvent);
+
+  if (requestId !== undefined && requestId !== null) {
+    trackedCalls.set(String(requestId), {
+      eventId,
+      toolName: message.params?.name,
+      startedAt: ctx.now,
+      ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
+      ...(requestIdStr !== undefined && { requestId: requestIdStr }),
+      ...(metaObj !== undefined && { meta: metaObj }),
+    });
+  }
+}
+
+function handleToolResponse(
+  message: JsonRpcMessage,
+  tracked: TrackedCall,
+  ctx: JsonRpcContext,
+): void {
+  if (message.error === undefined) {
+    const completedEvent: TelemetryEvent = {
+      id: tracked.eventId,
+      type: 'tool_call_completed',
+      timestamp: ctx.now,
+      toolName: tracked.toolName,
+      serverName: ctx.serverName,
+      result: message.result,
+      durationMs: ctx.now - tracked.startedAt,
+      ide: ctx.ide,
+      ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
+      ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
+      ...(tracked.meta !== undefined && { meta: tracked.meta }),
+    };
+    writeLocalLog(completedEvent, ctx.resolvedIde, ctx.resolvedServerName);
+    postTelemetry(ctx.socketPath, completedEvent);
+    return;
+  }
+
+  const failedEvent: TelemetryEvent = {
+    id: tracked.eventId,
+    type: 'tool_call_failed',
+    timestamp: ctx.now,
+    toolName: tracked.toolName,
+    serverName: ctx.serverName,
+    error: JSON.stringify(message.error),
+    durationMs: ctx.now - tracked.startedAt,
+    ide: ctx.ide,
+    ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
+    ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
+    ...(tracked.meta !== undefined && { meta: tracked.meta }),
+  };
+  writeLocalLog(failedEvent, ctx.resolvedIde, ctx.resolvedServerName);
+  postTelemetry(ctx.socketPath, failedEvent);
+}
+
 function handleJsonRpc(
   message: JsonRpcMessage,
   trackedCalls: Map<string, TrackedCall>,
   socketPath: string,
   serverName?: string,
   ide?: string,
-  workspaceSlug?: string,
 ): void {
   const now = Date.now();
   const resolvedIde = ide ?? 'unknown';
-  const resolvedWorkspaceSlug = workspaceSlug ?? 'unknown';
   const resolvedServerName = serverName ?? 'unknown';
+  const ctx: JsonRpcContext = { socketPath, serverName, ide, now, resolvedIde, resolvedServerName };
 
   if (message.method === 'tools/call') {
-    const requestId = message.id;
-    const eventId = crypto.randomUUID();
-    const conversationId = message.params?._meta?.['vscode.conversationId'];
-    const reqId = message.params?._meta?.['vscode.requestId'];
-    const conversationIdStr = typeof conversationId === 'string' ? conversationId : undefined;
-    const requestIdStr = typeof reqId === 'string' ? reqId : undefined;
-    const rawMeta = message.params?._meta as Record<string, unknown> | undefined;
-    const metaObj = rawMeta && Object.keys(rawMeta).length > 0 ? rawMeta : undefined;
-    const startedEvent: TelemetryEvent = {
-      id: eventId,
-      type: 'tool_call_started',
-      timestamp: now,
-      toolName: message.params?.name,
-      serverName,
-      arguments: message.params?.arguments,
-      ide,
-      workspaceSlug,
-      ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
-      ...(requestIdStr !== undefined && { requestId: requestIdStr }),
-      ...(metaObj !== undefined && { meta: metaObj }),
-    };
-    writeLocalLog(startedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
-    postTelemetry(socketPath, startedEvent);
-
-    if (requestId !== undefined && requestId !== null) {
-      trackedCalls.set(String(requestId), {
-        eventId,
-        toolName: message.params?.name,
-        startedAt: now,
-        ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
-        ...(requestIdStr !== undefined && { requestId: requestIdStr }),
-        ...(metaObj !== undefined && { meta: metaObj }),
-      });
-    }
-
+    handleToolCall(message, trackedCalls, ctx);
     return;
   }
 
@@ -589,43 +647,7 @@ function handleJsonRpc(
   }
 
   trackedCalls.delete(String(message.id));
-
-  if (message.error !== undefined) {
-    const failedEvent: TelemetryEvent = {
-      id: tracked.eventId,
-      type: 'tool_call_failed',
-      timestamp: now,
-      toolName: tracked.toolName,
-      serverName,
-      error: JSON.stringify(message.error),
-      durationMs: now - tracked.startedAt,
-      ide,
-      workspaceSlug,
-      ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
-      ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
-      ...(tracked.meta !== undefined && { meta: tracked.meta }),
-    };
-    writeLocalLog(failedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
-    postTelemetry(socketPath, failedEvent);
-    return;
-  }
-
-  const completedEvent: TelemetryEvent = {
-    id: tracked.eventId,
-    type: 'tool_call_completed',
-    timestamp: now,
-    toolName: tracked.toolName,
-    serverName,
-    result: message.result,
-    durationMs: now - tracked.startedAt,
-    ide,
-    workspaceSlug,
-    ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
-    ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
-    ...(tracked.meta !== undefined && { meta: tracked.meta }),
-  };
-  writeLocalLog(completedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
-  postTelemetry(socketPath, completedEvent);
+  handleToolResponse(message, tracked, ctx);
 }
 
 main().catch((error) => {

@@ -303,11 +303,12 @@ Expected output ends with `PASS reconnect`
 
 These are manual verification steps for the filter bar, connections sidebar, and history reload features introduced in the `agent-monitor-panel-v2` change. Run `npm run build` first, then install the extension in the Extension Development Host (see **Task 8.1** above).
 
-### 6.1 — Connections sidebar renders
+### 6.1 — Sidebar filter groups render
 
 1. Open the Agent Monitor panel (**MCP Eavesdrop: Open Agent Monitor Panel**).
 2. The panel body is split into two columns: a **Connections** sidebar on the left and a **log area** on the right.
-3. With the daemon running, the sidebar should list at least one connection entry. It must not be empty or invisible.
+3. With the daemon running, the sidebar should show an **IDE** section with at least one value.
+4. After events arrive, the sidebar should show a **Conversation ID** section including discovered IDs and `not detected` when applicable.
 
 ### 6.2 — Server select populates from live events
 
@@ -332,12 +333,12 @@ Test each of the four controls independently (reset others to "All" / empty befo
 4. Confirm the visible timestamp order matches the selected sort order (newest-first or oldest-first).
 5. Reload history (change any filter) and verify timestamps are still present on reloaded rows.
 
-### 6.9 — Mock source is normalized and filterable
+### 6.9 — Conversation bucket fallback is filterable
 
-1. Generate synthetic/mock telemetry that would otherwise show source as `unknown:unknown`.
-2. Verify entry source labels show `test:mock`.
-3. Verify the left sidebar includes a `test:mock` filter row even if it is not present in daemon `/connections`.
-4. Toggle the `test:mock` checkbox and confirm matching entries hide/show correctly.
+1. Trigger at least one call with no `conversationId` metadata.
+2. Verify the row conversation column shows `not detected` exactly.
+3. Verify the sidebar includes a `not detected` checkbox under **Conversation ID**.
+4. Toggle `not detected` and confirm matching entries hide/show correctly.
 
 ### 6.10 — Toolbar Refresh reloads initial data
 
@@ -366,11 +367,12 @@ Test each of the four controls independently (reset others to "All" / empty befo
 2. Only entries that match both conditions (that server AND completed) should be visible.
 3. Changing one filter to "All" while the other remains set should broaden the visible set accordingly.
 
-### 6.5 — No conversationId badge or color assignment
+### 6.5 — Conversation column is visible
 
-1. Trigger several tool calls, including multiple calls in the same conversation.
+1. Trigger several tool calls, including multiple calls in the same conversation and at least one without conversation metadata.
 2. Expand individual entries.
-3. No colored badge or "conversation ID" label should appear anywhere in any entry.
+3. Each entry should include a dedicated conversation value in the header area.
+4. Missing conversation metadata should render as `not detected`.
 
 ### 6.6 — Panel open/close/reopen resets filter bar
 

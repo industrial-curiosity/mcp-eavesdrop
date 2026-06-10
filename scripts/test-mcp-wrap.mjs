@@ -10,7 +10,6 @@ const options = {
   extensionDir: '/Users/test/.vscode/extensions/industrial-curiosity.mcpEavesdrop',
   wrapperVersion: '1',
   ide: 'vscode',
-  workspaceSlug: 'test-ws',
 };
 
 const stdioOriginal = {
@@ -27,15 +26,18 @@ assert.equal(wrappedStdio.command, 'node');
 assert.equal(wrappedStdio.args[0], options.wrapperPath);
 assert.ok(wrappedStdio.env.MCPEAVESDROP_REAL_SERVER, 'expected MCPEAVESDROP_REAL_SERVER to be set');
 assert.equal(wrappedStdio.env.MCPEAVESDROP_IDE, options.ide);
-assert.equal(wrappedStdio.env.MCPEAVESDROP_WORKSPACE_SLUG, options.workspaceSlug);
+assert.equal(wrappedStdio.env.MCPEAVESDROP_WORKSPACE_SLUG, undefined);
 // MCPEAVESDROP_IPC_SOCKET is no longer injected — socket path is embedded in the deployed wrapper file
 assert.equal(wrappedStdio.env.MCPEAVESDROP_IPC_SOCKET, undefined);
+
+wrappedStdio.env.MCPEAVESDROP_WORKSPACE_SLUG = 'legacy-workspace';
 
 const restoredStdio = m.unwrapEntry(wrappedStdio);
 assert.equal(restoredStdio.command, stdioOriginal.command);
 assert.deepEqual(restoredStdio.args, stdioOriginal.args);
 assert.equal(restoredStdio.env.A, '1');
 assert.equal(restoredStdio.env.B, '2');
+assert.equal(restoredStdio.env.MCPEAVESDROP_WORKSPACE_SLUG, undefined, 'legacy workspace key should be stripped on unwrap');
 
 // HTTP entries are now wrapped as stdio (routed through the daemon TCP proxy via bridge mode)
 const httpOriginal = {

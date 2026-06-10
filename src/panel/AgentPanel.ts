@@ -5,9 +5,11 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 
 export class AgentPanel {
-  public static currentPanel: AgentPanel | undefined;
-  public static onDidDispose: (() => void) | undefined;
-  public static onPanelReady: (() => void) | undefined;
+  // These static properties are intentionally mutable to track the singleton panel instance
+  // and lifecycle callbacks. They are assigned in createOrShow() and _dispose().
+  public static currentPanel: AgentPanel | undefined; // NOSONAR S1444
+  public static onDidDispose: (() => void) | undefined; // NOSONAR S1444
+  public static onPanelReady: (() => void) | undefined; // NOSONAR S1444
   private static readonly viewType = 'mcpEavesdropAgentMonitor';
 
   public static postMessage(message: unknown): void {
@@ -117,25 +119,7 @@ export class AgentPanel {
         .filter(d => d.isDirectory())
         .map(d => path.join(logsDir, d.name));
       for (const ideDir of ideDirs) {
-        const ideEntries = fs.readdirSync(ideDir, { withFileTypes: true });
-        for (const entry of ideEntries) {
-          if (entry.isFile() && entry.name.endsWith('.jsonl')) {
-            // Flat format written by daemon logger: <ide>/<workspaceSlug>.jsonl
-            this._readJsonlInto(path.join(ideDir, entry.name), events);
-          } else if (entry.isDirectory()) {
-            // Nested format written by stdio-wrapper: <ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl
-            const wsDir = path.join(ideDir, entry.name);
-            const dateDirs = fs.readdirSync(wsDir, { withFileTypes: true })
-              .filter(d => d.isDirectory())
-              .map(d => path.join(wsDir, d.name));
-            for (const dateDir of dateDirs) {
-              const logFiles = fs.readdirSync(dateDir).filter(f => f.endsWith('.jsonl'));
-              for (const logFile of logFiles) {
-                this._readJsonlInto(path.join(dateDir, logFile), events);
-              }
-            }
-          }
-        }
+        this._collectIdeLogs(ideDir, events);
       }
     } catch { /* logs dir not present yet */ }
     events.sort((a, b) => {
@@ -144,6 +128,43 @@ export class AgentPanel {
       return ta - tb;
     });
     return events;
+  }
+
+  private _collectIdeLogs(ideDir: string, out: unknown[]): void {
+    const ideEntries = fs.readdirSync(ideDir, { withFileTypes: true });
+    for (const entry of ideEntries) {
+      if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+        // Flat format written by daemon logger: <ide>/<workspaceSlug>.jsonl
+        this._readJsonlInto(path.join(ideDir, entry.name), out);
+        continue;
+      }
+      if (entry.isDirectory()) {
+        this._collectNestedLogs(path.join(ideDir, entry.name), out);
+      }
+    }
+  }
+
+  private _collectNestedLogs(nestedDir: string, out: unknown[]): void {
+    const nestedEntries = fs.readdirSync(nestedDir, { withFileTypes: true });
+
+    const directLogFiles = nestedEntries
+      .filter((d) => d.isFile() && d.name.endsWith('.jsonl'))
+      .map((d) => path.join(nestedDir, d.name));
+    for (const logPath of directLogFiles) {
+      this._readJsonlInto(logPath, out);
+    }
+
+    // Legacy nested format: <ide>/<workspaceSlug>/<YYYY-MM-DD>/<serverName>.jsonl
+    // New nested format: <ide>/<YYYY-MM-DD>/<serverName>.jsonl
+    const nestedDateDirs = nestedEntries
+      .filter((d) => d.isDirectory())
+      .map((d) => path.join(nestedDir, d.name));
+    for (const dateDir of nestedDateDirs) {
+      const logFiles = fs.readdirSync(dateDir).filter((f) => f.endsWith('.jsonl'));
+      for (const logFile of logFiles) {
+        this._readJsonlInto(path.join(dateDir, logFile), out);
+      }
+    }
   }
 
   private _readJsonlInto(filePath: string, out: unknown[]): void {
