@@ -12,7 +12,6 @@ import {
   MCPEAVESDROP_REAL_SERVER,
   MCPEAVESDROP_REAL_URL,
   MCPEAVESDROP_SERVER_NAME,
-  MCPEAVESDROP_WORKSPACE_SLUG,
 } from '../types';
 
 // These values are injected at deploy time by wrapper-deploy.ts
@@ -119,11 +118,11 @@ function postTelemetry(socketPath: string, event: TelemetryEvent): void {
   }
 }
 
-function writeLocalLog(event: TelemetryEvent, ide: string, workspaceSlug: string, serverName: string): void {
+function writeLocalLog(event: TelemetryEvent, ide: string, serverName: string): void {
   try {
     const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
     const date = new Date(event.timestamp).toISOString().slice(0, 10); // YYYY-MM-DD
-    const logDir = `${home}/.mcpEavesdrop/logs/${ide}/${workspaceSlug}/${date}`;
+    const logDir = `${home}/.mcpEavesdrop/logs/${ide}/${date}`;
     fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(`${logDir}/${serverName}.jsonl`, JSON.stringify(event) + '\n', 'utf8');
   } catch (error) {
@@ -224,7 +223,7 @@ function parseLengthPrefixedFrames(buffer: Buffer<ArrayBufferLike>): { messages:
       break;
     }
 
-    const header = buffer.slice(cursor, separator).toString('utf8');
+    const header = buffer.subarray(cursor, separator).toString('utf8');
     const match = /content-length:\s*(\d+)/i.exec(header);
     if (!match) {
       break;
@@ -237,7 +236,7 @@ function parseLengthPrefixedFrames(buffer: Buffer<ArrayBufferLike>): { messages:
       break;
     }
 
-    const body = buffer.slice(bodyStart, bodyEnd).toString('utf8');
+    const body = buffer.subarray(bodyStart, bodyEnd).toString('utf8');
     try {
       messages.push(JSON.parse(body) as JsonRpcMessage);
     } catch {
@@ -249,7 +248,7 @@ function parseLengthPrefixedFrames(buffer: Buffer<ArrayBufferLike>): { messages:
 
   return {
     messages,
-    rest: buffer.slice(cursor),
+    rest: buffer.subarray(cursor),
   };
 }
 
@@ -282,13 +281,12 @@ async function main(): Promise<void> {
   }
 
   const ide = getEnv(MCPEAVESDROP_IDE) ?? 'unknown';
-  const workspaceSlug = getEnv(MCPEAVESDROP_WORKSPACE_SLUG) ?? 'unknown';
   const realUrl = getEnv(MCPEAVESDROP_REAL_URL);
   const realServer = getEnv(MCPEAVESDROP_REAL_SERVER);
 
   // HTTP direct mode: MCP entry was originally an HTTP server
   if (realUrl && !realServer) {
-    await runHttpDirectMode(ide, workspaceSlug, realUrl, DAEMON_SOCKET_PATH);
+    await runHttpDirectMode(ide, realUrl, DAEMON_SOCKET_PATH);
     return;
   }
 
@@ -331,13 +329,13 @@ async function main(): Promise<void> {
     const framedRequest = parseLengthPrefixedFrames(Buffer.concat([requestFramedRemainder, chunk]));
     requestFramedRemainder = framedRequest.rest;
     for (const message of framedRequest.messages) {
-      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide, workspaceSlug);
+      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide);
     }
 
     const ndjsonRequest = parseNewlineDelimited(requestNdjsonRemainder + chunk.toString('utf8'));
     requestNdjsonRemainder = ndjsonRequest.rest;
     for (const message of ndjsonRequest.messages) {
-      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide, workspaceSlug);
+      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide);
     }
   });
 
@@ -348,14 +346,14 @@ async function main(): Promise<void> {
     framedRemainder = framed.rest;
 
     for (const message of framed.messages) {
-      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide, workspaceSlug);
+      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide);
     }
 
     // Also support newline-delimited JSON streams.
     const ndjson = parseNewlineDelimited(ndjsonRemainder + chunk.toString('utf8'));
     ndjsonRemainder = ndjson.rest;
     for (const message of ndjson.messages) {
-      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide, workspaceSlug);
+      handleJsonRpc(message, trackedCalls, socketPath, serverName, ide);
     }
   });
 
@@ -382,7 +380,6 @@ async function main(): Promise<void> {
  */
 async function runHttpDirectMode(
   ide: string,
-  workspaceSlug: string,
   realUrl: string,
   socketPath: string,
 ): Promise<void> {
@@ -394,7 +391,7 @@ async function runHttpDirectMode(
       const ndjson = parseNewlineDelimited(ndjsonRemainder + chunk.toString('utf8'));
       ndjsonRemainder = ndjson.rest;
       for (const message of ndjson.messages) {
-        void handleHttpDirectMessage(message, serverName, realUrl, socketPath, ide, workspaceSlug);
+        void handleHttpDirectMessage(message, serverName, realUrl, socketPath, ide);
       }
     });
 
@@ -411,7 +408,6 @@ async function handleHttpDirectMessage(
   realUrl: string,
   socketPath: string,
   ide: string,
-  workspaceSlug: string,
 ): Promise<void> {
   const now = Date.now();
   const isToolCall = message.method === 'tools/call';
@@ -429,9 +425,8 @@ async function handleHttpDirectMessage(
       serverName,
       arguments: message.params?.arguments,
       ide,
-      workspaceSlug,
     };
-    writeLocalLog(startedEvent, ide, workspaceSlug, serverName);
+    writeLocalLog(startedEvent, ide, serverName);
     postTelemetry(socketPath, startedEvent);
   }
 
@@ -454,7 +449,6 @@ async function handleHttpDirectMessage(
         error: String(parsed.error.message ?? 'Unknown error'),
         durationMs,
         ide,
-        workspaceSlug,
       } : {
         id: eventId,
         type: 'tool_call_completed',
@@ -464,9 +458,8 @@ async function handleHttpDirectMessage(
         result: parsed?.result,
         durationMs,
         ide,
-        workspaceSlug,
       };
-      writeLocalLog(finishedEvent, ide, workspaceSlug, serverName);
+      writeLocalLog(finishedEvent, ide, serverName);
       postTelemetry(socketPath, finishedEvent);
     }
   } catch (err) {
@@ -488,9 +481,8 @@ async function handleHttpDirectMessage(
         error: String(err),
         durationMs: Date.now() - startTime,
         ide,
-        workspaceSlug,
       };
-      writeLocalLog(failedEvent, ide, workspaceSlug, serverName);
+      writeLocalLog(failedEvent, ide, serverName);
       postTelemetry(socketPath, failedEvent);
     }
   }
@@ -533,11 +525,9 @@ function handleJsonRpc(
   socketPath: string,
   serverName?: string,
   ide?: string,
-  workspaceSlug?: string,
 ): void {
   const now = Date.now();
   const resolvedIde = ide ?? 'unknown';
-  const resolvedWorkspaceSlug = workspaceSlug ?? 'unknown';
   const resolvedServerName = serverName ?? 'unknown';
 
   if (message.method === 'tools/call') {
@@ -547,7 +537,7 @@ function handleJsonRpc(
     const reqId = message.params?._meta?.['vscode.requestId'];
     const conversationIdStr = typeof conversationId === 'string' ? conversationId : undefined;
     const requestIdStr = typeof reqId === 'string' ? reqId : undefined;
-    const rawMeta = message.params?._meta as Record<string, unknown> | undefined;
+    const rawMeta = message.params?._meta;
     const metaObj = rawMeta && Object.keys(rawMeta).length > 0 ? rawMeta : undefined;
     const startedEvent: TelemetryEvent = {
       id: eventId,
@@ -557,12 +547,11 @@ function handleJsonRpc(
       serverName,
       arguments: message.params?.arguments,
       ide,
-      workspaceSlug,
       ...(conversationIdStr !== undefined && { conversationId: conversationIdStr }),
       ...(requestIdStr !== undefined && { requestId: requestIdStr }),
       ...(metaObj !== undefined && { meta: metaObj }),
     };
-    writeLocalLog(startedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
+    writeLocalLog(startedEvent, resolvedIde, resolvedServerName);
     postTelemetry(socketPath, startedEvent);
 
     if (requestId !== undefined && requestId !== null) {
@@ -600,12 +589,11 @@ function handleJsonRpc(
       error: JSON.stringify(message.error),
       durationMs: now - tracked.startedAt,
       ide,
-      workspaceSlug,
       ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
       ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
       ...(tracked.meta !== undefined && { meta: tracked.meta }),
     };
-    writeLocalLog(failedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
+    writeLocalLog(failedEvent, resolvedIde, resolvedServerName);
     postTelemetry(socketPath, failedEvent);
     return;
   }
@@ -619,12 +607,11 @@ function handleJsonRpc(
     result: message.result,
     durationMs: now - tracked.startedAt,
     ide,
-    workspaceSlug,
     ...(tracked.conversationId !== undefined && { conversationId: tracked.conversationId }),
     ...(tracked.requestId !== undefined && { requestId: tracked.requestId }),
     ...(tracked.meta !== undefined && { meta: tracked.meta }),
   };
-  writeLocalLog(completedEvent, resolvedIde, resolvedWorkspaceSlug, resolvedServerName);
+  writeLocalLog(completedEvent, resolvedIde, resolvedServerName);
   postTelemetry(socketPath, completedEvent);
 }
 

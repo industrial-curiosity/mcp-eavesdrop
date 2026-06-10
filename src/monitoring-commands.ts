@@ -13,7 +13,6 @@ import { deployWrapper } from './wrapper-deploy';
 
 interface MonitoringCommandOptions {
   ide: string;
-  workspaceSlugProvider: () => string;
 }
 
 function workspaceFolderPath(): string | undefined {
@@ -81,7 +80,6 @@ async function enableMonitoring(
         extensionDir,
         wrapperVersion: deploy.version,
         ide: options.ide,
-        workspaceSlug: options.workspaceSlugProvider(),
       });
       wrappedInFile += 1;
     }

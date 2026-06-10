@@ -7,7 +7,6 @@ import {
   MCPEAVESDROP_REAL_URL,
   MCPEAVESDROP_SERVER_NAME,
   MCPEAVESDROP_WRAPPER_VERSION,
-  MCPEAVESDROP_WORKSPACE_SLUG,
 } from './types';
 
 export interface McpServerEntry {
@@ -25,7 +24,6 @@ export interface WrapOptions {
   extensionDir: string;
   wrapperVersion: string;
   ide: string;
-  workspaceSlug: string;
 }
 
 interface SerializedRealServer {
@@ -61,7 +59,6 @@ export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServe
     [MCPEAVESDROP_EXT_DIR]: options.extensionDir,
     [MCPEAVESDROP_WRAPPER_VERSION]: options.wrapperVersion,
     [MCPEAVESDROP_IDE]: options.ide,
-    [MCPEAVESDROP_WORKSPACE_SLUG]: options.workspaceSlug,
   };
 
   if (entry.url) {
@@ -95,7 +92,7 @@ export function wrapEntry(entry: McpServerEntry, options: WrapOptions): McpServe
 }
 
 export function unwrapEntry(entry: McpServerEntry): McpServerEntry {
-  const env = { ...(entry.env ?? {}) };
+  const env = entry.env ? { ...entry.env } : {};
 
   if (env[MCPEAVESDROP_REAL_URL]) {
     const realUrl = env[MCPEAVESDROP_REAL_URL];
@@ -124,7 +121,7 @@ export function unwrapEntry(entry: McpServerEntry): McpServerEntry {
   }
 
   const restoredEnv = {
-    ...(parsed?.env ?? {}),
+    ...(parsed?.env ? { ...parsed.env } : {}),
     ...stripMcpEavesdropEnv(env),
   };
 

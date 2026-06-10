@@ -9,6 +9,19 @@
         },
         "npx tsc": true,
         "mv": true,
-        "npm run compile": true
+        "npm run compile": true,
+        "npm run -s build": true,
+        "/^node scripts/test-mcp-wrap\\.mjs$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node scripts/test-wrapper\\.mjs$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npm run -s build && node scripts/test-mcp-wrap\\.mjs && node scripts/test-proxy\\.mjs$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }

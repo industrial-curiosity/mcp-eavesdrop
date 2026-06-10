@@ -44,9 +44,10 @@ interface Connection {
 
 interface SourceIdentity {
   ide: string;
-  workspaceSlug: string;
-  key: string;
-  label: string;
+}
+
+interface ConversationIdentity {
+  value: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,10 +75,20 @@ const sortToggleEl = document.getElementById('sortToggle') as HTMLButtonElement;
 type SortOrder = 'desc' | 'asc';
 let sortOrder: SortOrder = 'desc';
 
-// Active filter: key = "ide/workspaceSlug", value = true (visible) | false (hidden)
+const NOT_DETECTED_CONVERSATION = 'not detected';
+
 const filterState = new Map<string, boolean>();
-const sourceIdentityByKey = new Map<string, SourceIdentity>();
+const ideIdentityByKey = new Map<string, SourceIdentity>();
+const conversationIdentityByKey = new Map<string, ConversationIdentity>();
 const FILTER_STORAGE_KEY = 'mcpEavesdrop-filters';
+
+function ideFilterKey(ide: string): string {
+  return `ide:${ide}`;
+}
+
+function conversationFilterKey(conversationId: string): string {
+  return `conversation:${conversationId}`;
+}
 
 function loadFilters(): void {
   try {
@@ -111,11 +122,11 @@ function isTimeVisible(timestamp: number, timeFilter: string): boolean {
 }
 
 function isVisible(event: McpToolEvent, entryEl?: HTMLElement): boolean {
-  const source = normalizeSourceIdentity(event.ide, event.workspaceSlug);
+  const ide = normalizeIde(event.ide);
+  const conversation = normalizeConversationId(event.conversationId);
 
-  // IDE/workspace filter
-  const key = source.key;
-  if (filterState.get(key) === false) return false;
+  if (filterState.get(ideFilterKey(ide)) === false) return false;
+  if (filterState.get(conversationFilterKey(conversation)) === false) return false;
 
   // Tool name filter
   const toolFilter = filterToolEl.value.trim().toLowerCase();
@@ -214,64 +225,59 @@ function setStatus(text: string): void {
 
 function renderConnections(connections: Connection[]): void {
   for (const conn of connections) {
-    registerSourceIdentity({
-      ide: conn.ide,
-      workspaceSlug: conn.workspaceSlug,
-      label: `${conn.ide}: ${conn.workspace}`,
-    });
+    registerIdeIdentity(conn.ide);
   }
 
   renderSourceFilters();
 }
 
-function normalizeSourceIdentity(ide?: string, workspaceSlug?: string): SourceIdentity {
+function normalizeIde(ide?: string): string {
   const rawIde = (ide ?? '').trim();
-  const rawWorkspace = (workspaceSlug ?? '').trim();
-  const unknownSource =
-    (!rawIde && !rawWorkspace) ||
-    (rawIde.toLowerCase() === 'unknown' && rawWorkspace.toLowerCase() === 'unknown');
-
-  if (unknownSource) {
-    return {
-      ide: 'test',
-      workspaceSlug: 'mock',
-      key: 'test/mock',
-      label: 'test:mock',
-    };
-  }
-
-  const normalizedIde = rawIde || 'unknown';
-  const normalizedWorkspace = rawWorkspace || 'unknown';
-  return {
-    ide: normalizedIde,
-    workspaceSlug: normalizedWorkspace,
-    key: `${normalizedIde}/${normalizedWorkspace}`,
-    label: `${normalizedIde}:${normalizedWorkspace}`,
-  };
+  return rawIde || 'unknown';
 }
 
-function registerSourceIdentity(source: { ide?: string; workspaceSlug?: string; label?: string }): SourceIdentity {
-  const normalized = normalizeSourceIdentity(source.ide, source.workspaceSlug);
-  if (!sourceIdentityByKey.has(normalized.key)) {
-    sourceIdentityByKey.set(normalized.key, {
-      ...normalized,
-      label: source.label?.trim() || normalized.label,
-    });
+function normalizeConversationId(conversationId?: string): string {
+  const normalized = (conversationId ?? '').trim();
+  return normalized || NOT_DETECTED_CONVERSATION;
+}
+
+function registerIdeIdentity(ide?: string): SourceIdentity {
+  const normalizedIde = normalizeIde(ide);
+  if (!ideIdentityByKey.has(normalizedIde)) {
+    ideIdentityByKey.set(normalizedIde, { ide: normalizedIde });
   }
-  if (!filterState.has(normalized.key)) {
-    filterState.set(normalized.key, true);
+  const key = ideFilterKey(normalizedIde);
+  if (!filterState.has(key)) {
+    filterState.set(key, true);
   }
-  return sourceIdentityByKey.get(normalized.key) ?? normalized;
+  return ideIdentityByKey.get(normalizedIde) ?? { ide: normalizedIde };
+}
+
+function registerConversationIdentity(conversationId?: string): ConversationIdentity {
+  const normalizedConversation = normalizeConversationId(conversationId);
+  if (!conversationIdentityByKey.has(normalizedConversation)) {
+    conversationIdentityByKey.set(normalizedConversation, { value: normalizedConversation });
+  }
+  const key = conversationFilterKey(normalizedConversation);
+  if (!filterState.has(key)) {
+    filterState.set(key, true);
+  }
+  return conversationIdentityByKey.get(normalizedConversation) ?? { value: normalizedConversation };
 }
 
 function renderSourceFilters(): void {
   if (!connectionsEl) return;
   connectionsEl.textContent = '';
 
-  const sources = Array.from(sourceIdentityByKey.values())
-    .sort((a, b) => a.label.localeCompare(b.label));
+  const ideValues = Array.from(ideIdentityByKey.values())
+    .map((item) => item.ide)
+    .sort((a, b) => a.localeCompare(b));
 
-  if (sources.length === 0) {
+  const conversationValues = Array.from(conversationIdentityByKey.values())
+    .map((item) => item.value)
+    .sort((a, b) => a.localeCompare(b));
+
+  if (ideValues.length === 0 && conversationValues.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'conn-empty';
     empty.textContent = 'No active connections';
@@ -279,22 +285,56 @@ function renderSourceFilters(): void {
     return;
   }
 
-  for (const source of sources) {
+  const ideHeader = document.createElement('div');
+  ideHeader.className = 'conn-header';
+  ideHeader.textContent = 'IDE';
+  connectionsEl.appendChild(ideHeader);
+
+  for (const ide of ideValues) {
     const row = document.createElement('div');
     row.className = 'conn-row';
 
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
-    toggle.checked = filterState.get(source.key) !== false;
+    const key = ideFilterKey(ide);
+    toggle.checked = filterState.get(key) !== false;
     toggle.addEventListener('change', () => {
-      filterState.set(source.key, toggle.checked);
+      filterState.set(key, toggle.checked);
       saveFilters();
       reapplyFilters();
     });
 
     const label = document.createElement('label');
-    label.textContent = source.label;
-    label.title = `${source.ide} / ${source.workspaceSlug}`;
+    label.textContent = ide;
+    label.title = ide;
+
+    row.appendChild(toggle);
+    row.appendChild(label);
+    connectionsEl.appendChild(row);
+  }
+
+  const conversationHeader = document.createElement('div');
+  conversationHeader.className = 'conn-header';
+  conversationHeader.textContent = 'Conversation ID';
+  connectionsEl.appendChild(conversationHeader);
+
+  for (const conversationId of conversationValues) {
+    const row = document.createElement('div');
+    row.className = 'conn-row';
+
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    const key = conversationFilterKey(conversationId);
+    toggle.checked = filterState.get(key) !== false;
+    toggle.addEventListener('change', () => {
+      filterState.set(key, toggle.checked);
+      saveFilters();
+      reapplyFilters();
+    });
+
+    const label = document.createElement('label');
+    label.textContent = conversationId;
+    label.title = conversationId;
 
     row.appendChild(toggle);
     row.appendChild(label);
@@ -320,8 +360,10 @@ function reapplyFilters(): void {
   const timeFilter = filterTimeEl.value;
 
   for (const [, el] of entries) {
-    const key = `${el.dataset['ide'] ?? ''}/${el.dataset['workspaceSlug'] ?? ''}`;
-    const ideVisible = filterState.get(key) !== false;
+    const ide = el.dataset['ide'] ?? 'unknown';
+    const conversationId = el.dataset['conversationId'] ?? NOT_DETECTED_CONVERSATION;
+    const ideVisible = filterState.get(ideFilterKey(ide)) !== false;
+    const conversationVisible = filterState.get(conversationFilterKey(conversationId)) !== false;
     const toolName = (el.dataset['toolName'] ?? '').toLowerCase();
     const toolVisible = !toolFilter || toolName.includes(toolFilter);
     const serverName = el.dataset['serverName'] ?? '';
@@ -329,7 +371,7 @@ function reapplyFilters(): void {
     const statusVisible = !statusFilter || el.classList.contains(statusFilter);
     const timestamp = Number(el.dataset['timestamp'] ?? '0');
     const timeVisible = isTimeVisible(timestamp, timeFilter);
-    el.style.display = (ideVisible && toolVisible && serverVisible && statusVisible && timeVisible) ? '' : 'none';
+    el.style.display = (ideVisible && conversationVisible && toolVisible && serverVisible && statusVisible && timeVisible) ? '' : 'none';
   }
 }
 
@@ -379,7 +421,8 @@ function handleEvent(event: McpToolEvent, isHistory: boolean): void {
     return; // handled via connections endpoint; sidebar updates come from extension
   }
 
-  registerSourceIdentity({ ide: event.ide, workspaceSlug: event.workspaceSlug });
+  registerIdeIdentity(event.ide);
+  registerConversationIdentity(event.conversationId);
   renderSourceFilters();
 
   const wasAtBottom = isScrolledToBottom();
@@ -389,10 +432,11 @@ function handleEvent(event: McpToolEvent, isHistory: boolean): void {
       if (entries.has(event.id)) {
         break;
       }
-      const source = normalizeSourceIdentity(event.ide, event.workspaceSlug);
+      const ide = normalizeIde(event.ide);
+      const conversationId = normalizeConversationId(event.conversationId);
       const entry = createStartedEntry(event);
-      entry.dataset['ide'] = source.ide;
-      entry.dataset['workspaceSlug'] = source.workspaceSlug;
+      entry.dataset['ide'] = ide;
+      entry.dataset['conversationId'] = conversationId;
       entry.dataset['toolName'] = event.toolName ?? '';
       entry.dataset['serverName'] = event.serverName ?? '';
       entry.dataset['timestamp'] = String(event.timestamp);
@@ -427,7 +471,8 @@ function handleEvent(event: McpToolEvent, isHistory: boolean): void {
 // ---------------------------------------------------------------------------
 
 function createStartedEntry(event: McpToolEvent): HTMLElement {
-  const source = registerSourceIdentity({ ide: event.ide, workspaceSlug: event.workspaceSlug });
+  const ideSource = registerIdeIdentity(event.ide);
+  const conversation = registerConversationIdentity(event.conversationId);
 
   const div = document.createElement('div');
   div.className = 'entry in-progress';
@@ -458,8 +503,13 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
 
   const sourceEl = document.createElement('span');
   sourceEl.className = 'entry-source';
-  sourceEl.textContent = source.label;
+  sourceEl.textContent = ideSource.ide;
   header.appendChild(sourceEl);
+
+  const conversationEl = document.createElement('span');
+  conversationEl.className = 'entry-conversation';
+  conversationEl.textContent = conversation.value;
+  header.appendChild(conversationEl);
 
   const details = document.createElement('div');
   details.className = 'entry-details';
@@ -481,19 +531,20 @@ function createStartedEntry(event: McpToolEvent): HTMLElement {
 }
 
 function createSyntheticEntryForTerminalEvent(event: McpToolEvent): HTMLElement {
-  const source = normalizeSourceIdentity(event.ide, event.workspaceSlug);
+  const ide = normalizeIde(event.ide);
+  const conversationId = normalizeConversationId(event.conversationId);
   const syntheticStart: McpToolEvent = {
     id: event.id,
     type: 'tool_call_started',
     timestamp: event.timestamp,
     toolName: event.toolName,
     serverName: event.serverName,
-    ide: source.ide,
-    workspaceSlug: source.workspaceSlug,
+    ide,
+    conversationId,
   };
   const entry = createStartedEntry(syntheticStart);
-  entry.dataset['ide'] = source.ide;
-  entry.dataset['workspaceSlug'] = source.workspaceSlug;
+  entry.dataset['ide'] = ide;
+  entry.dataset['conversationId'] = conversationId;
   entry.dataset['toolName'] = event.toolName ?? '';
   entry.dataset['serverName'] = event.serverName ?? '';
   entry.dataset['timestamp'] = String(event.timestamp);
@@ -630,7 +681,8 @@ clearBtn.addEventListener('click', () => {
 
 refreshBtn.addEventListener('click', () => {
   clearLog();
-  sourceIdentityByKey.clear();
+  ideIdentityByKey.clear();
+  conversationIdentityByKey.clear();
   renderSourceFilters();
   vscode.postMessage({ type: 'requestInitialData' });
 });

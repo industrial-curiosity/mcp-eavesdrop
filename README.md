@@ -30,7 +30,7 @@ The user reconfigures their MCP tool endpoints (in `mcp.json` or VS Code/Cursor 
 
 All open IDE windows (VS Code, Cursor, or any VS Code fork) connect to a single shared daemon process rather than each window running its own proxy. This means:
 
-- Events from all open windows are visible in any panel, with per-IDE and per-workspace filters.
+- Events from all open windows are visible in any panel, with per-IDE and per-conversation filters.
 - Only one proxy port is used system-wide (dynamically selected from 7331–7360).
 - The daemon exits automatically when the last window closes.
 
@@ -48,7 +48,8 @@ The daemon writes its state to `~/.mcpEavesdrop/daemon.json`:
 | `~/.mcpEavesdrop/ipc.sock` | Unix domain socket for per-window → daemon IPC |
 | `~/.mcpEavesdrop/ipc.lock` | Bootstrap lock (prevents duplicate daemon spawns) |
 | `~/.mcpEavesdrop/stdio-wrapper.js` | Deployed wrapper script injected into `mcp.json` entries |
-| `~/.mcpEavesdrop/logs/{ide}/{workspace}.jsonl` | Persistent NDJSON event log per IDE/workspace |
+| `~/.mcpEavesdrop/logs/{ide}/{date}/{server}.jsonl` | Wrapper-written NDJSON event log (new format) |
+| `~/.mcpEavesdrop/logs/{ide}/{workspace}.jsonl` | Daemon-written NDJSON event log (legacy-compatible format) |
 
 #### Manual daemon restart
 
@@ -67,8 +68,8 @@ The proxy emits a structured event stream (SSE) for every tool lifecycle event: 
 Events carry attribution fields for filtering and display:
 
 - `ide` — which IDE initiated the call (e.g. `vscode`, `cursor`)
-- `workspaceSlug` — the workspace the call came from
-- `conversationId` — the VS Code chat session that triggered the call (captured on the event type; not currently rendered in the panel)
+- `conversationId` — the VS Code chat session that triggered the call
+- Missing `conversationId` values are rendered and filterable as `not detected`
 
 ### WebView Panel
 
@@ -85,10 +86,11 @@ The main content area contains:
 - A **log** showing the tool call timeline:
   - A left-side timestamp column for each call row (local date + time)
   - Which tool is currently executing (with a spinner)
+  - A source column for IDE and a dedicated conversation ID column (`not detected` when absent)
   - A timeline of all tool calls in the current session
   - Expandable detail for each call: arguments, response, duration, status, and `meta` when present
 
-The connections sidebar shows all currently connected IDE windows plus synthetic/mock event sources observed in history/live events. Mock telemetry is normalized to `test:mock` so it can be filtered consistently. Each connection/source has a checkbox to show or hide tool calls from that identity. This filter state persists in `localStorage` across panel reloads. Filter bar state (tool name, server, status, time) resets each time the panel opens.
+The connections sidebar includes IDE and conversation filter groups. Each value has a checkbox to show or hide matching tool calls. Missing conversation metadata appears as `not detected`. This filter state persists in `localStorage` across panel reloads. Filter bar state (tool name, server, status, time) resets each time the panel opens.
 
 The toolbar includes a **Refresh** button (left of **Clear**) that re-runs the initial panel load behavior (`status`, `connections`, `history`) without closing/reopening the panel.
 
